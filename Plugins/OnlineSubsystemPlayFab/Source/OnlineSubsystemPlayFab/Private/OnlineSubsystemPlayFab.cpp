@@ -194,13 +194,6 @@ bool FOnlineSubsystemPlayFab::Init()
 		}
 	}
 
-/*#if WITH_EDITOR
-	FString Secret = TEXT("MNY6H81NBH3T7EIEBB6O3TZ4E8QO391GM3TX151UGZ1815S86X");
-	IPlayFabModuleInterface::Get().GetServerAPI()->SetDevSecretKey(Secret);
-	IPlayFabModuleInterface::Get().GetMatchmakerAPI()->SetDevSecretKey(Secret);
-	IPlayFabModuleInterface::Get().GetAdminAPI->SetDevSecretKey(Secret);
-#endif*/
-
 	return true;
 }
 
