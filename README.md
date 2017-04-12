@@ -1,6 +1,5 @@
 # OnlineSubsystemPlayFab
 This is an Online Subsystem for the Unreal Engine 4, using PlayFab.  
-#### This is the master branch, which means it is probably not stable. Use at your own discretion.
 
 ## Requirements
 This requires:  
