@@ -9,11 +9,51 @@
 #include "Core/PlayFabClientDataModels.h"
 
 /**
+* Info associated with an online user on the PlayFab service
+*/
+class FOnlineUserInfoPlayFab : public FOnlineUser
+{
+public:
+
+	// FOnlineUser
+
+	virtual TSharedRef<const FUniqueNetId> GetUserId() const override;
+	virtual FString GetRealName() const override;
+	virtual FString GetDisplayName(const FString& Platform = FString()) const override;
+	virtual bool GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const override;
+
+	// FOnlineUserInfoPlayFab
+
+	/**
+	* Init/default constructor
+	*/
+	FOnlineUserInfoPlayFab(const FString& InUserId = TEXT(""))
+		: UserId(new FUniqueNetIdString(InUserId))
+	{
+	}
+
+	/**
+	* Destructor
+	*/
+	virtual ~FOnlineUserInfoPlayFab()
+	{
+	}
+
+	/** User Id represented as a FUniqueNetId */
+	TSharedRef<const FUniqueNetId> UserId;
+	/** Additional key/value pair data related to user attribution */
+	TMap<FString, FString> UserAttributes;
+
+	FString DisplayName;
+};
+
+/**
 * Interface class for achievements
 */
 class FOnlineUserPlayFab : public IOnlineUser
 {
 private:
+	TArray<TSharedRef<class FOnlineUser>> CachedUsers;
 
 	/** Reference to the main PlayFab subsystem */
 	class FOnlineSubsystemPlayFab* PlayFabSubsystem;

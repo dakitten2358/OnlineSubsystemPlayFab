@@ -82,6 +82,7 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 				Request.Body = PlayFabParms;
 				ClientAPI->WriteTitleEvent(Request);
 			}
+			return true;
 		}
 	}
 	else

@@ -307,7 +307,7 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 	UE_LOG_ONLINE(Log, TEXT("FOnlineIdentityPlayFab::Login: Received PlayFabId for LocalUser: %d: %s"), LocalUserNum, *Result.PlayFabId);
 
 	TriggerOnLoginChangedDelegates(LocalUserNum);
-	TriggerOnLoginCompleteDelegates(LocalUserNum, true, FUniqueNetIdString(Result.PlayFabId), TEXT(""));
+	TriggerOnLoginCompleteDelegates(LocalUserNum, true, UserAccountPtr->GetUserId().Get(), TEXT(""));
 }
 
 void FOnlineIdentityPlayFab::OnErrorCallback_Login(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum)

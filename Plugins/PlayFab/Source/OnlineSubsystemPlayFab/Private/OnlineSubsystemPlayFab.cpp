@@ -10,11 +10,14 @@
 #include "OnlineEventsPlayFab.h"
 #include "OnlineExternalUIPlayFab.h"
 #include "OnlineFriendsPlayFab.h"
+#include "OnlineGroupsPlayFab.h"
 #include "OnlineIdentityPlayFab.h"
+#include "OnlineLeaderboardPlayFab.h"
 #include "OnlineSessionPlayFab.h"
 #include "OnlineSharingPlayFab.h"
 #include "OnlineStorePlayFab.h"
 #include "OnlineTimePlayFab.h"
+#include "OnlineUserPlayFab.h"
 
 // PlayFab
 #include "PlayFab.h"
@@ -59,7 +62,7 @@ IOnlineFriendsPtr FOnlineSubsystemPlayFab::GetFriendsInterface() const
 
 IOnlineGroupsPtr FOnlineSubsystemPlayFab::GetGroupsInterface() const
 {
-	return nullptr;
+	return GroupsInterface;
 }
 
 IOnlineIdentityPtr FOnlineSubsystemPlayFab::GetIdentityInterface() const
@@ -69,7 +72,7 @@ IOnlineIdentityPtr FOnlineSubsystemPlayFab::GetIdentityInterface() const
 
 IOnlineLeaderboardsPtr FOnlineSubsystemPlayFab::GetLeaderboardsInterface() const
 {
-	return nullptr;
+	return LeaderboardsInterface;
 }
 
 IOnlineMessagePtr FOnlineSubsystemPlayFab::GetMessageInterface() const
@@ -137,14 +140,9 @@ IOnlineUserCloudPtr FOnlineSubsystemPlayFab::GetUserCloudInterface() const
 	return nullptr;
 }
 
-IOnlineUserCloudPtr FOnlineSubsystemPlayFab::GetUserCloudInterface(const FString& Key) const
-{
-	return nullptr;
-}
-
 IOnlineUserPtr FOnlineSubsystemPlayFab::GetUserInterface() const
 {
-	return nullptr;
+	return UserInterface;
 }
 
 IOnlineVoicePtr FOnlineSubsystemPlayFab::GetVoiceInterface() const
@@ -173,24 +171,22 @@ bool FOnlineSubsystemPlayFab::Init()
 	EventsInterface = MakeShareable(new FOnlineEventsPlayFab(this));
 	ExternalUIInterface = MakeShareable(new FOnlineExternalUIPlayFab(this));
 	FriendsInterface = MakeShareable(new FOnlineFriendsPlayFab(this));
+	GroupsInterface = MakeShareable(new FOnlineGroupsPlayFab(this));
 	IdentityInterface = MakeShareable(new FOnlineIdentityPlayFab());
+	LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardsPlayFab(this));
 	SessionInterface = MakeShareable(new FOnlineSessionPlayFab(this));
 	SharingInterface = MakeShareable(new FOnlineSharingPlayFab(this));
 	StoreInterface = MakeShareable(new FOnlineStorePlayFab(this));
 	TimeInterface = MakeShareable(new FOnlineTimePlayFab(this));
+	UserInterface = MakeShareable(new FOnlineUserPlayFab(this));
 
 	FString cmdVal;
 	if (FParse::Value(FCommandLine::Get(), TEXT("title_secret_key"), cmdVal)) {
 		//cmdVal = cmdVal.Replace(TEXT("="), TEXT(""));
 		PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
-		PlayFabMatchmakerPtr MatchmakerAPI = IPlayFabModuleInterface::Get().GetMatchmakerAPI();
 		if (ServerAPI.IsValid())
 		{
 			ServerAPI->SetDevSecretKey(cmdVal);
-		}
-		if (MatchmakerAPI.IsValid())
-		{
-			MatchmakerAPI->SetDevSecretKey(cmdVal);
 		}
 	}
 
@@ -208,11 +204,14 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 	EventsInterface = nullptr;
 	ExternalUIInterface = nullptr;
 	FriendsInterface = nullptr;
+	GroupsInterface = nullptr;
 	IdentityInterface = nullptr;
+	LeaderboardsInterface = nullptr;
 	SessionInterface = nullptr;
 	SharingInterface = nullptr;
 	StoreInterface = nullptr;
 	TimeInterface = nullptr;
+	UserInterface = nullptr;
 
 	return true;
 }
