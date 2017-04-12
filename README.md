@@ -1,5 +1,5 @@
 # OnlineSubsystemPlayFab
-This is an Online Subsystem for the Unreal Engine 4, using PlayFab.  
+This is an Online Subsystem for the Unreal Engine 4, using PlayFab.
 
 ## Requirements
 This requires:  
@@ -26,6 +26,9 @@ bEnabled=true
 
 Now, you may build your project and open it. Goto your ProjectSettings and fill in the PlayFab Title Id and Secret key(Only have filled in editor!!)  
 Assuming you also downloaded AdvancedSessions you can open blueprints and begin your work.  
+**THE KEY TO LOGGING IN(for this version)** is to call "Login", and then On Success call "Show External Login UI" to finish the setup. This cheat is temporary, hopefully to be corrected later on.  
+
+Sessions will use the Project Setting's build version to send to PlayFab, make sure they stay consistent!  
 
 #### I've logged in to the subsystem, now what?
 ##### Clients
@@ -50,10 +53,10 @@ After that discussion, on to the actual steps of a server(I call most of these i
 3. Call Destroy Session when server is closing(Call this especially for external servers, or else PlayFab will keep them listed!)
 
 That should be it for the server.
-  
-  
-  
-  
+
+
+
+
 ## FAQ
 ##### Actually these are just random problems I'll just assume you'll run into, because I'm rude
 
@@ -63,13 +66,24 @@ That should be it for the server.
 Did you login first?
 ##### Server:
 Welp, I don't have anything to say for you at the moment...
-  
+
 2. ###### *Help!* I'm receiving the error " - Cannot map local player to unique net ID" when trying to run anything after logging in!
 Make sure you have logged in. if you have, make sure you can called "Show External Login UI" to finish the login processes.  
-  
+
 3. ###### How do I register new players?
 The OnlineSubsystem has no implementations for Registration, as such you will just have to use PlayFab's API directly to register new users. I currently(this will be adjusted later) only use https://api.playfab.com/documentation/client/method/LoginWithPlayFab and as such, you will need to use https://api.playfab.com/documentation/client/method/RegisterPlayFabUser
 
+4. ###### Region Lock  
+In order to specify the region to create session in or find session in, which by default is USCentral, provide the "REGION" filter. This should correspond to one of the following region values:  
+```
+"Australia"
+"Brazil"
+"EUWest"
+"Japan"
+"Singapore"
+"USCentral"
+"USEast"
+```
 
 ## Known Issues
 
