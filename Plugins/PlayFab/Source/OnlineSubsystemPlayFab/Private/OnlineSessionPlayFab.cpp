@@ -11,13 +11,77 @@
 #include "LANBeacon.h"
 #include "Json.h"
 #include "Core/PlayFabServerAPI.h"
-#include "Core/PlayFabMatchmakerAPI.h"
 #include "Core/PlayFabClientAPI.h"
 #include "Core/PlayFabServerDataModels.h"
-#include "Core/PlayFabMatchmakerDataModels.h"
 #include "Core/PlayFabClientDataModels.h"
 #include "PlayFab.h"
 
+
+PlayFab::ServerModels::Region GetServerRegion(FName InRegion)
+{
+	if (InRegion == "Australia")
+	{
+		return PlayFab::ServerModels::Region::RegionAustralia;
+	}
+	else if (InRegion == "Brazil")
+	{
+		return PlayFab::ServerModels::Region::RegionBrazil;
+	}
+	else if (InRegion == "EUWest")
+	{
+		return PlayFab::ServerModels::Region::RegionEUWest;
+	}
+	else if (InRegion == "Japan")
+	{
+		return PlayFab::ServerModels::Region::RegionJapan;
+	}
+	else if (InRegion == "Singapore")
+	{
+		return PlayFab::ServerModels::Region::RegionSingapore;
+	}
+	else if (InRegion == "USCentral")
+	{
+		return PlayFab::ServerModels::Region::RegionUSCentral;
+	}
+	else if (InRegion == "USEast")
+	{
+		return PlayFab::ServerModels::Region::RegionUSEast;
+	}
+	return PlayFab::ServerModels::Region::RegionUSCentral;
+}
+
+PlayFab::ClientModels::Region GetClientRegion(FName InRegion)
+{
+	if (InRegion == "Australia")
+	{
+		return PlayFab::ClientModels::Region::RegionAustralia;
+	}
+	else if (InRegion == "Brazil")
+	{
+		return PlayFab::ClientModels::Region::RegionBrazil;
+	}
+	else if (InRegion == "EUWest")
+	{
+		return PlayFab::ClientModels::Region::RegionEUWest;
+	}
+	else if (InRegion == "Japan")
+	{
+		return PlayFab::ClientModels::Region::RegionJapan;
+	}
+	else if (InRegion == "Singapore")
+	{
+		return PlayFab::ClientModels::Region::RegionSingapore;
+	}
+	else if (InRegion == "USCentral")
+	{
+		return PlayFab::ClientModels::Region::RegionUSCentral;
+	}
+	else if (InRegion == "USEast")
+	{
+		return PlayFab::ClientModels::Region::RegionUSEast;
+	}
+	return PlayFab::ClientModels::Region::RegionUSCentral;
+}
 
 FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType)
 	: HostAddr(NULL)
@@ -429,7 +493,12 @@ uint32 FOnlineSessionPlayFab::CreateInternetSession(int32 HostingPlayerNum, clas
 						{
 							Request.GameMode = Session->SessionSettings.Settings[SETTING_GAMEMODE].Data.ToString();
 						}
-						Request.pfRegion = PlayFab::ServerModels::Region::RegionUSCentral;
+
+						const FOnlineSessionSetting* RegionSetting = Session->SessionSettings.Settings.Find(SETTING_REGION);
+						FName Region = RegionSetting ? FName(*RegionSetting->ToString()) : NAME_None;
+						Request.pfRegion = GetServerRegion(Region);
+						//Request.pfRegion = PlayFab::ServerModels::Region::RegionUSCentral;
+
 						bool bCanBindAll;
 						TSharedPtr<class FInternetAddr> HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalHostAddr(*GLog, bCanBindAll);
 						Request.ServerHost = HostAddr->ToString(false);
@@ -809,7 +878,18 @@ bool FOnlineSessionPlayFab::StartMatchmaking(const TArray< TSharedRef<const FUni
 		PlayFab::ClientModels::FMatchmakeRequest Request;
 		Request.BuildVersion = PlayFabSubsystem->GetBuildVersion();
 		Request.StartNewIfNoneFound = true;
-		Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
+
+		FString OutValue;
+		if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
+		{
+			Request.pfRegion = GetClientRegion(FName(*OutValue));
+		}
+		else
+		{
+			Request.pfRegion = GetClientRegion(NAME_None);
+		}
+		//Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
+
 		SuccessDelegate_Client_Matchmake = PlayFab::UPlayFabClientAPI::FMatchmakeDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake, SessionName);
 		ErrorDelegate_Client = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client);
 		ClientAPI->Matchmake(Request, SuccessDelegate_Client_Matchmake, ErrorDelegate_Client);
@@ -817,9 +897,9 @@ bool FOnlineSessionPlayFab::StartMatchmaking(const TArray< TSharedRef<const FUni
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("PlayFab Client Interface not available"));
+		UE_LOG_ONLINE(Warning, TEXT("PlayFab Client Interface not available"));
 	}
-	//UE_LOG(LogOnline, Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
+	//UE_LOG_ONLINE(Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
@@ -834,8 +914,8 @@ bool FOnlineSessionPlayFab::CancelMatchmaking(int32 SearchingPlayerNum, FName Se
 		TriggerOnCancelMatchmakingCompleteDelegates(SessionName, true);
 		return true;
 	}
-	//UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
-	UE_LOG(LogOnline, Warning, TEXT("Not currently Matchmaking."));
+	//UE_LOG_ONLINE(Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
+	UE_LOG_ONLINE(Warning, TEXT("Not currently Matchmaking."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
@@ -917,15 +997,30 @@ uint32 FOnlineSessionPlayFab::FindInternetSession(const TSharedRef<FOnlineSessio
 	else
 	{
 		PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+		if (ClientAPI.IsValid())
+		{
+			PlayFab::ClientModels::FCurrentGamesRequest Request;
+			Request.BuildVersion = PlayFabSubsystem->GetBuildVersion();
 
-		PlayFab::ClientModels::FCurrentGamesRequest Request;
+			FString OutValue;
+			if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
+			{
+				Request.pfRegion = GetClientRegion(FName(*OutValue));
+			}
+			else
+			{
+				Request.pfRegion = GetClientRegion(NAME_None);
+			}
+			//Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
 
-		Request.BuildVersion = PlayFabSubsystem->GetBuildVersion();
-		Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
-
-		SuccessDelegate_Client_GetCurrentGames = PlayFab::UPlayFabClientAPI::FGetCurrentGamesDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames);
-		ErrorDelegate_Client = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client);
-		ClientAPI->GetCurrentGames(Request, SuccessDelegate_Client_GetCurrentGames, ErrorDelegate_Client);
+			SuccessDelegate_Client_GetCurrentGames = PlayFab::UPlayFabClientAPI::FGetCurrentGamesDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames);
+			ErrorDelegate_Client = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client);
+			ClientAPI->GetCurrentGames(Request, SuccessDelegate_Client_GetCurrentGames, ErrorDelegate_Client);
+		}
+		else
+		{
+			UE_LOG_ONLINE(Warning, TEXT("PlayFab Client Interface not available"));
+		}
 	}
 
 	return ERROR_IO_PENDING;
