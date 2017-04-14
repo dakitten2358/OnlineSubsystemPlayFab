@@ -67,6 +67,8 @@ bEnable=true
 bEnableXmpp=true
 ```
 
+Currently can't set the XMPP server domain, resource, address, platform... yeah, I'd hold off on the XMPP implementation.
+
 
 ## FAQ
 ##### Actually these are just random problems I'll just assume you'll run into, because I'm rude
