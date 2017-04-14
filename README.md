@@ -21,7 +21,7 @@ To finish, open your Config/DefaultEngine.ini and add:
 DefaultPlatformService=PlayFab
 
 [OnlineSubsystemPlayFab]
-bEnabled=true
+bEnable=true
 ```
 
 Now, you may build your project and open it. Goto your ProjectSettings and fill in the PlayFab Title Id and Secret key(Only have filled in editor!!)  
@@ -54,7 +54,18 @@ After that discussion, on to the actual steps of a server(I call most of these i
 
 That should be it for the server.
 
+# XMPP, if you're into that sort of thing
 
+## Picking your server
+I personally am using [Prosody](https://prosody.im/), Epic Games is using [Tigase](http://tigase.net/).  
+Don't use [eJabberd](https://www.ejabberd.im/), they don't play well with Jingle: https://www.ejabberd.im/node/1354  
+
+## Enabling Subsystem XMPP
+```ini
+[OnlineSubsystemPlayFab]
+bEnable=true
+bEnableXmpp=true
+```
 
 
 ## FAQ
