@@ -67,9 +67,29 @@ private:
 	/** Ids mapped to locally registered users */
 	TMap<FUniqueNetIdString, TSharedRef<FUserOnlineAccountPlayFab>> UserAccounts;
 
-public:
-	// IOnlineIdentity
+	/** Reference to the main PlayFab subsystem */
+	class FOnlineSubsystemPlayFab* PlayFabSubsystem;
 
+	/** Hidden on purpose */
+	FOnlineIdentityPlayFab() :
+		PlayFabSubsystem(NULL)
+	{
+	}
+
+PACKAGE_SCOPE:
+
+	FOnlineIdentityPlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem) :
+		PlayFabSubsystem(InPlayFabSubsystem)
+	{
+	}
+
+public:
+
+	virtual ~FOnlineIdentityPlayFab()
+	{
+	}
+
+	// IOnlineIdentity
 	virtual bool Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials) override;
 	virtual bool Logout(int32 LocalUserNum) override;
 	virtual bool AutoLogin(int32 LocalUserNum) override;
@@ -86,16 +106,6 @@ public:
 	virtual void GetUserPrivilege(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, const FOnGetUserPrivilegeCompleteDelegate& Delegate) override;
 	virtual FPlatformUserId GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId) override;
 	virtual FString GetAuthType() const override;
-
-	// FOnlineIdentityPlayFab
-	FOnlineIdentityPlayFab()
-	{}
-
-	/**
-	* Destructor
-	*/
-	virtual ~FOnlineIdentityPlayFab()
-	{}
 
 private:
 	PlayFab::UPlayFabClientAPI::FLoginWithPlayFabDelegate SuccessDelegate_Login;

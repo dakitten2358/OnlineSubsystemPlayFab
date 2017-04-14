@@ -3,6 +3,7 @@
 #include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineIdentityPlayFab.h"
 #include "PlayFab.h"
+#include "Xmpp.h"
 
 
 FString FUserOnlineAccountPlayFab::GetRealName() const
@@ -308,6 +309,23 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 
 	TriggerOnLoginChangedDelegates(LocalUserNum);
 	TriggerOnLoginCompleteDelegates(LocalUserNum, true, UserAccountPtr->GetUserId().Get(), TEXT(""));
+
+	if (PlayFabSubsystem->IsXmppEnabled())
+	{
+		TSharedRef<IXmppConnection> XmppConnection = FXmppModule::Get().CreateConnection(UserAccountPtr->GetUserId()->ToString());
+
+		FXmppServer Server;
+		Server.AppId = PlayFabSubsystem->GetAppId();
+		Server.ClientResource = "test";
+		Server.Domain = "localhost";
+		Server.ServerAddr = "192.168.175.129";
+		Server.bUseSSL = false; // This is me avoiding dealing with certificates
+		Server.bUsePlainTextAuth = true; // For some reason Prosody doesn't seem to like non-plain auth?
+		Server.Platform = "Windows";
+		XmppConnection->SetServer(Server);
+
+		XmppConnection->Login(UserAccountPtr->GetUserId()->ToString(), Result.SessionTicket);
+	}
 }
 
 void FOnlineIdentityPlayFab::OnErrorCallback_Login(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum)

@@ -14,6 +14,7 @@
 
 /** Forward declarations of all interface classes */
 typedef TSharedPtr<class FOnlineAchievementsPlayFab, ESPMode::ThreadSafe> FOnlineAchievementsPlayFabPtr;
+typedef TSharedPtr<class FOnlineChatPlayFab, ESPMode::ThreadSafe> FOnlineChatPlayFabPtr;
 typedef TSharedPtr<class FOnlineEntitlementsPlayFab, ESPMode::ThreadSafe> FOnlineEntitlementsPlayFabPtr;
 typedef TSharedPtr<class FOnlineEventsPlayFab, ESPMode::ThreadSafe> FOnlineEventsPlayFabPtr;
 typedef TSharedPtr<class FOnlineExternalUIPlayFab, ESPMode::ThreadSafe> FOnlineExternalUIPlayFabPtr;
@@ -21,6 +22,7 @@ typedef TSharedPtr<class FOnlineFriendsPlayFab, ESPMode::ThreadSafe> FOnlineFrie
 typedef TSharedPtr<class FOnlineGroupsPlayFab, ESPMode::ThreadSafe> FOnlineGroupsPlayFabPtr;
 typedef TSharedPtr<class FOnlineIdentityPlayFab, ESPMode::ThreadSafe> FOnlineIdentityPlayFabPtr;
 typedef TSharedPtr<class FOnlineLeaderboardsPlayFab, ESPMode::ThreadSafe> FOnlineLeaderboardsPlayFabPtr;
+typedef TSharedPtr<class FOnlinePresencePlayFab, ESPMode::ThreadSafe> FOnlinePresencePlayFabPtr;
 typedef TSharedPtr<class FOnlineSessionPlayFab, ESPMode::ThreadSafe> FOnlineSessionPlayFabPtr;
 typedef TSharedPtr<class FOnlineSharingPlayFab, ESPMode::ThreadSafe> FOnlineSharingPlayFabPtr;
 typedef TSharedPtr<class FOnlineStorePlayFab, ESPMode::ThreadSafe> FOnlineStorePlayFabPtr;
@@ -89,6 +91,8 @@ public:
     */
     bool IsEnabled();
 
+	bool IsXmppEnabled();
+
 PACKAGE_SCOPE:
 
     /** Only the factory makes instances */
@@ -102,6 +106,7 @@ PACKAGE_SCOPE:
 		, GroupsInterface(NULL)
 		, IdentityInterface(NULL)
 		, LeaderboardsInterface(NULL)
+		, PresenceInterface(NULL)
 		, SessionInterface(NULL)
 		, SharingInterface(NULL)
 		, StoreInterface(NULL)
@@ -121,6 +126,7 @@ PACKAGE_SCOPE:
 		, GroupsInterface(NULL)
 		, IdentityInterface(NULL)
 		, LeaderboardsInterface(NULL)
+		, PresenceInterface(NULL)
 		, SessionInterface(NULL)
 		, SharingInterface(NULL)
 		, StoreInterface(NULL)
@@ -134,6 +140,8 @@ PACKAGE_SCOPE:
 private:
 	/** Interface for achievements */
 	FOnlineAchievementsPlayFabPtr AchievementsInterface;
+	/** Interface to the chat services */
+	FOnlineChatPlayFabPtr ChatInterface;
 	/** Interface to the entitlements services */
 	FOnlineEntitlementsPlayFabPtr EntitlementsInterface;
 	/** Interface to the online events services */
@@ -148,6 +156,8 @@ private:
 	FOnlineIdentityPlayFabPtr IdentityInterface;
 	/** Interface to the leaderboard services */
 	FOnlineLeaderboardsPlayFabPtr LeaderboardsInterface;
+	/** Interface to the presence services */
+	FOnlinePresencePlayFabPtr PresenceInterface;
 	/** Interface to the session services */
 	FOnlineSessionPlayFabPtr SessionInterface;
 	/** Interface to the title sharing services */

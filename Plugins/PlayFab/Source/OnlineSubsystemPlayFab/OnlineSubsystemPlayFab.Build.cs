@@ -19,6 +19,7 @@ public class OnlineSubsystemPlayFab : ModuleRules
                 "OnlineSubsystem",
                 "OnlineSubsystemUtils",
                 "Json",
+                "XMPP",// WANT TO MAKE A NOTE HERE, EPIC GAMES USES "tigase" FOR XMPP SERVER
                 "PlayFab"
 			}
             );

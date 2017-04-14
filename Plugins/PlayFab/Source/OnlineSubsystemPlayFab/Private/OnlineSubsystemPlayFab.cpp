@@ -13,6 +13,7 @@
 #include "OnlineGroupsPlayFab.h"
 #include "OnlineIdentityPlayFab.h"
 #include "OnlineLeaderboardPlayFab.h"
+#include "OnlinePresencePlayFab.h"
 #include "OnlineSessionPlayFab.h"
 #include "OnlineSharingPlayFab.h"
 #include "OnlineStorePlayFab.h"
@@ -87,7 +88,7 @@ IOnlinePartyPtr FOnlineSubsystemPlayFab::GetPartyInterface() const
 
 IOnlinePresencePtr FOnlineSubsystemPlayFab::GetPresenceInterface() const
 {
-	return nullptr;
+	return PresenceInterface;
 }
 
 IOnlinePurchasePtr FOnlineSubsystemPlayFab::GetPurchaseInterface() const
@@ -172,8 +173,9 @@ bool FOnlineSubsystemPlayFab::Init()
 	ExternalUIInterface = MakeShareable(new FOnlineExternalUIPlayFab(this));
 	FriendsInterface = MakeShareable(new FOnlineFriendsPlayFab(this));
 	GroupsInterface = MakeShareable(new FOnlineGroupsPlayFab(this));
-	IdentityInterface = MakeShareable(new FOnlineIdentityPlayFab());
+	IdentityInterface = MakeShareable(new FOnlineIdentityPlayFab(this));
 	LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardsPlayFab(this));
+	PresenceInterface = MakeShareable(new FOnlinePresencePlayFab(this));
 	SessionInterface = MakeShareable(new FOnlineSessionPlayFab(this));
 	SharingInterface = MakeShareable(new FOnlineSharingPlayFab(this));
 	StoreInterface = MakeShareable(new FOnlineStorePlayFab(this));
@@ -207,6 +209,7 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 	GroupsInterface = nullptr;
 	IdentityInterface = nullptr;
 	LeaderboardsInterface = nullptr;
+	PresenceInterface = nullptr;
 	SessionInterface = nullptr;
 	SharingInterface = nullptr;
 	StoreInterface = nullptr;
@@ -219,7 +222,7 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 FString FOnlineSubsystemPlayFab::GetAppId() const
 {
 	//return PlayFab::PlayFabSettings::titleId;
-	return TEXT("null");
+	return TEXT("");
 }
 
 bool FOnlineSubsystemPlayFab::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
@@ -250,5 +253,19 @@ bool FOnlineSubsystemPlayFab::IsEnabled()
 #endif
 
 	return bEnablePlayFab;
+}
+
+bool FOnlineSubsystemPlayFab::IsXmppEnabled()
+{
+	// Check the ini for disabling PlayFab
+	bool bEnableXmpp = false;
+	GConfig->GetBool(TEXT("OnlineSubsystemPlayFab"), TEXT("bEnableXmpp"), bEnableXmpp, GEngineIni);
+
+#if !UE_BUILD_SHIPPING
+	// Check the commandline for disabling Xmpp
+	bEnableXmpp = bEnableXmpp && !FParse::Param(FCommandLine::Get(), TEXT("NOXMPP"));
+#endif
+
+	return bEnableXmpp;
 }
 
