@@ -245,7 +245,7 @@ bool FOnlineSubsystemPlayFab::IsEnabled()
 {
 	// Check the ini for disabling PlayFab
 	bool bEnablePlayFab = false;
-	GConfig->GetBool(TEXT("OnlineSubsystemPlayFab"), TEXT("bEnabled"), bEnablePlayFab, GEngineIni);
+	GConfig->GetBool(TEXT("OnlineSubsystemPlayFab"), TEXT("bEnable"), bEnablePlayFab, GEngineIni);
 
 #if !UE_BUILD_SHIPPING
 	// Check the commandline for disabling PlayFab
