@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineFriendsPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "OnlineIdentityInterface.h"
@@ -46,7 +45,7 @@ const FOnlineUserPresence& FOnlineFriendPlayFab::GetPresence() const
 bool FOnlineFriendsPlayFab::ReadFriendsList(int32 LocalUserNum, const FString& ListName, const FOnReadFriendsListComplete& Delegate /*= FOnReadFriendsListComplete()*/)
 {
 	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 	if (ServerAPI.IsValid())
 	{
 		PlayFab::ServerModels::FGetFriendsListRequest Request;
@@ -87,7 +86,7 @@ bool FOnlineFriendsPlayFab::DeleteFriendsList(int32 LocalUserNum, const FString&
 
 bool FOnlineFriendsPlayFab::SendInvite(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName, const FOnSendInviteComplete& Delegate /*= FOnSendInviteComplete()*/)
 {
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 	if (ClientAPI.IsValid())
 	{
 		PlayFab::ClientModels::FAddFriendRequest Request;
@@ -118,7 +117,7 @@ bool FOnlineFriendsPlayFab::RejectInvite(int32 LocalUserNum, const FUniqueNetId&
 
 bool FOnlineFriendsPlayFab::DeleteFriend(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName)
 {
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 	if (ClientAPI.IsValid())
 	{
 		PlayFab::ClientModels::FRemoveFriendRequest Request;
@@ -207,7 +206,7 @@ bool FOnlineFriendsPlayFab::GetBlockedPlayers(const FUniqueNetId& UserId, TArray
 
 void FOnlineFriendsPlayFab::DumpBlockedPlayers() const
 {
-	
+
 }
 
 void FOnlineFriendsPlayFab::OnSuccessCallback_Server_GetFriendsList(const PlayFab::ServerModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString* ListName, const FOnReadFriendsListComplete* Delegate)
@@ -274,4 +273,3 @@ void FOnlineFriendsPlayFab::OnErrorCallback_GetFriendsList(const PlayFab::FPlayF
 {
 	Delegate->Execute(LocalUserNum, false, *ListName, ErrorResult.ErrorMessage);
 }
-

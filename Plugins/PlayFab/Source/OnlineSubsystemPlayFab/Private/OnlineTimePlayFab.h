@@ -7,6 +7,8 @@
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
 #include "Core/PlayFabClientDataModels.h"
+#include "Core/PlayFabServerAPI.h"
+#include "Core/PlayFabServerDataModels.h"
 
 /**
 * Interface for querying server time from an online service
@@ -14,6 +16,7 @@
 class FOnlineTimePlayFab : public IOnlineTime
 {
 private:
+	bool bCatchingServerTime;
 
 	FString CachedUTC;
 
@@ -21,15 +24,17 @@ private:
 	class FOnlineSubsystemPlayFab* PlayFabSubsystem;
 
 	/** Hidden on purpose */
-	FOnlineTimePlayFab() :
-		PlayFabSubsystem(NULL)
+	FOnlineTimePlayFab()
+		: PlayFabSubsystem(NULL)
+		, bCatchingServerTime(false)
 	{
 	}
 
 PACKAGE_SCOPE:
 
-	FOnlineTimePlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem) :
-		PlayFabSubsystem(InPlayFabSubsystem)
+	FOnlineTimePlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem)
+		: PlayFabSubsystem(InPlayFabSubsystem)
+		, bCatchingServerTime(false)
 	{
 	}
 
@@ -44,9 +49,8 @@ public:
 	virtual FString GetLastServerUtcTime() override;
 
 private:
-	PlayFab::UPlayFabClientAPI::FGetTimeDelegate SuccessDelegate_GetTime;
-	void OnSuccessCallback_GetTime(const PlayFab::ClientModels::FGetTimeResult& Result);
-	PlayFab::FPlayFabErrorDelegate ErrorDelegate_GetTime;
+	void OnSuccessCallback_S_GetTime(const PlayFab::ServerModels::FGetTimeResult& Result);
+	void OnSuccessCallback_C_GetTime(const PlayFab::ClientModels::FGetTimeResult& Result);
 	void OnErrorCallback_GetTime(const PlayFab::FPlayFabError& ErrorResult);
 };
 

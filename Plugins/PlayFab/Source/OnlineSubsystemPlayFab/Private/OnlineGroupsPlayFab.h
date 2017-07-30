@@ -1,7 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
- 
+
+#include "CoreMinimal.h"
 #include "OnlineGroupsInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
@@ -23,6 +24,10 @@ protected:
 public:
 
 	IGroupInfoPlayFab(TSharedRef<const FUniqueNetId> InGroupId, TSharedRef<const FUniqueNetId> InOwnerId, FGroupDisplayInfo InDisplayInfo);
+
+	virtual ~IGroupInfoPlayFab()
+	{
+	}
 
 	// IOnlineGroups
 	virtual TSharedRef<const FUniqueNetId> GetGroupId() const override;

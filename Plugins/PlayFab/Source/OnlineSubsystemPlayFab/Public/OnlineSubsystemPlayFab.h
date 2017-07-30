@@ -6,6 +6,7 @@
 #include "OnlineSubsystemImpl.h"
 #include "OnlineSubsystemPlayFabModule.h"
 #include "OnlineSubsystemPlayFabPackage.h"
+#include "PlayFab.h"
 
 #ifndef PLAYFAB_SUBSYSTEM
 #define PLAYFAB_SUBSYSTEM	FName(TEXT("PLAYFAB"))
@@ -63,6 +64,9 @@ public:
     virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
 	virtual IOnlineUserPtr GetUserInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const override;
+
+	PlayFabClientPtr GetClientAPI(int32 LocalUserNum = 0);
+	PlayFabClientPtr GetClientAPI(const FUniqueNetId& UserId);
 
     virtual bool Init() override;
     virtual bool Shutdown() override;
@@ -168,6 +172,8 @@ private:
 	FOnlineTimePlayFabPtr TimeInterface;
 	/** Interface to the online user services */
 	FOnlineUserPlayFabPtr UserInterface;
+
+	TMap<int32, PlayFabClientPtr> PlayFabClientPtrs;
 };
 
 typedef TSharedPtr<FOnlineSubsystemPlayFab, ESPMode::ThreadSafe> FOnlineSubsystemPlayFabPtr;

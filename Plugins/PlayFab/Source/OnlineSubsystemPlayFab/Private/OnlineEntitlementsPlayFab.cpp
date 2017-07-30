@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineEntitlementsPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "OnlineIdentityInterface.h"
@@ -48,7 +47,7 @@ void FOnlineEntitlementsPlayFab::GetAllEntitlements(const FUniqueNetId& UserId, 
 bool FOnlineEntitlementsPlayFab::QueryEntitlements(const FUniqueNetId& UserId, const FString& Namespace, const FPagedQuery& Page/* = FPagedQuery()*/)
 {
 	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(UserId);
 	if (ServerAPI.IsValid())
 	{
 		PlayFab::ServerModels::FGetUserInventoryRequest Request;
@@ -136,4 +135,3 @@ void FOnlineEntitlementsPlayFab::OnErrorCallback_GetUserInventory(const PlayFab:
 {
 	TriggerOnQueryEntitlementsCompleteDelegates(false, *UserId, Namespace, ErrorResult.ErrorMessage);
 }
-

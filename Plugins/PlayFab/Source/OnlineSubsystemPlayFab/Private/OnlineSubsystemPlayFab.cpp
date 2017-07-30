@@ -1,8 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineSubsystemPlayFab.h"
-#include "OnlineSubsystemPlayFabModule.h"
 
 // Interfaces
 #include "OnlineAchievementsPlayFab.h"
@@ -165,6 +163,28 @@ bool FOnlineSubsystemPlayFab::Tick(float DeltaTime)
 	return true;
 }
 
+PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI(int32 LocalUserNum /*= 0*/)
+{
+	PlayFabClientPtr* ClientAPI = PlayFabClientPtrs.Find(LocalUserNum);
+	PlayFabClientPtr Result;
+	if (ClientAPI)
+	{
+		Result = *ClientAPI;
+	}
+	else
+	{
+		Result = MakeShareable(new PlayFab::UPlayFabClientAPI());
+		PlayFabClientPtrs.Add(LocalUserNum, Result);
+	}
+
+	return Result;
+}
+
+PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI(const FUniqueNetId& UserId)
+{
+	return GetClientAPI(IdentityInterface->GetPlatformUserIdFromUniqueNetId(UserId));
+}
+
 bool FOnlineSubsystemPlayFab::Init()
 {
 	AchievementsInterface = MakeShareable(new FOnlineAchievementsPlayFab(this));
@@ -221,8 +241,7 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 
 FString FOnlineSubsystemPlayFab::GetAppId() const
 {
-	//return PlayFab::PlayFabSettings::titleId;
-	return TEXT("");
+	return IPlayFabModuleInterface::Get().GetTitleId();
 }
 
 bool FOnlineSubsystemPlayFab::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)

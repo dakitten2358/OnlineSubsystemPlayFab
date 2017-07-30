@@ -7,6 +7,8 @@
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
 #include "Core/PlayFabClientDataModels.h"
+#include "Core/PlayFabServerAPI.h"
+#include "Core/PlayFabServerDataModels.h"
 
 /**
 * Info associated with an online user on the PlayFab service
@@ -89,6 +91,7 @@ public:
 private:
 	PlayFab::UPlayFabClientAPI::FGetAccountInfoDelegate SuccessDelegate_Client_GetAccountInfo;
 	void OnSuccessCallback_Client_GetAccountInfo(const PlayFab::ClientModels::FGetAccountInfoResult& Result, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds);
+	void OnSuccessCallback_Server_GetAccountInfo(const PlayFab::ServerModels::FGetUserAccountInfoResult& Result, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds);
 	void OnErrorCallback_GetAccountInfo(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds);
 };
 

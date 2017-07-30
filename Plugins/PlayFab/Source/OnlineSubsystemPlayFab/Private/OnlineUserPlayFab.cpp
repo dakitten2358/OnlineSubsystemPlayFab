@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineUserPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "PlayFab.h"
@@ -39,14 +38,28 @@ bool FOnlineUserPlayFab::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedR
 		UE_LOG_ONLINE(Error, TEXT("FOnlineUserPlayFab::QueryUserInfo: Can't accept more then 1 UserId at a time due to PlayFab API"));
 		return false;
 	}
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
-	if (ClientAPI.IsValid())
+	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
+	if (ServerAPI.IsValid())
+	{
+		for (TSharedRef<const FUniqueNetId> UserId : UserIds)
+		{
+			PlayFab::ServerModels::FGetUserAccountInfoRequest Request;
+			Request.PlayFabId = UserId->ToString();
+			PlayFab::UPlayFabServerAPI::FGetUserAccountInfoDelegate SuccessDelegate = PlayFab::UPlayFabServerAPI::FGetUserAccountInfoDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnSuccessCallback_Server_GetAccountInfo, LocalUserNum, &UserIds);
+			PlayFab::FPlayFabErrorDelegate ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnErrorCallback_GetAccountInfo, LocalUserNum, &UserIds);
+			ServerAPI->GetUserAccountInfo(Request, SuccessDelegate);
+		}
+		return true;
+	}
+	else if (ClientAPI.IsValid())
 	{
 		for (TSharedRef<const FUniqueNetId> UserId : UserIds)
 		{
 			PlayFab::ClientModels::FGetAccountInfoRequest Request;
 			Request.PlayFabId = UserId->ToString();
 			SuccessDelegate_Client_GetAccountInfo = PlayFab::UPlayFabClientAPI::FGetAccountInfoDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnSuccessCallback_Client_GetAccountInfo, LocalUserNum, &UserIds);
+			PlayFab::FPlayFabErrorDelegate ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnErrorCallback_GetAccountInfo, LocalUserNum, &UserIds);
 			ClientAPI->GetAccountInfo(Request, SuccessDelegate_Client_GetAccountInfo);
 		}
 		return true;
@@ -110,6 +123,16 @@ void FOnlineUserPlayFab::OnSuccessCallback_Client_GetAccountInfo(const PlayFab::
 	TSharedRef<FOnlineUserInfoPlayFab> UserInfo = MakeShareable(new FOnlineUserInfoPlayFab(Result.AccountInfo->PlayFabId));
 
 	UserInfo->DisplayName = Result.AccountInfo->TitleInfo->DisplayName;
+	CachedUsers.Add(UserInfo);
+
+	TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, true, *UserIds, TEXT(""));
+}
+
+void FOnlineUserPlayFab::OnSuccessCallback_Server_GetAccountInfo(const PlayFab::ServerModels::FGetUserAccountInfoResult& Result, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds)
+{
+	TSharedRef<FOnlineUserInfoPlayFab> UserInfo = MakeShareable(new FOnlineUserInfoPlayFab(Result.UserInfo->PlayFabId));
+
+	UserInfo->DisplayName = Result.UserInfo->TitleInfo->DisplayName;
 	CachedUsers.Add(UserInfo);
 
 	TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, true, *UserIds, TEXT(""));

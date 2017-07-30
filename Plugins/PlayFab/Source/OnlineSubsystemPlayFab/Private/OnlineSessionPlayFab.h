@@ -2,6 +2,7 @@
 
 #pragma once
  
+#include "CoreMinimal.h"
 #include "OnlineSessionInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
@@ -142,7 +143,7 @@ private:
 	*
 	* @return an Error/success code
 	*/
-	uint32 FindInternetSession(const TSharedRef<FOnlineSessionSearch>& SearchSettings);
+	uint32 FindInternetSession(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings);
 
 	/**
 	* Builds a LAN search query and broadcasts it

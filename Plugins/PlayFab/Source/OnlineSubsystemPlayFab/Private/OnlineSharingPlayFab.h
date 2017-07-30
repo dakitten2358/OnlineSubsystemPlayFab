@@ -2,6 +2,7 @@
 
 #pragma once
  
+#include "CoreMinimal.h"
 #include "OnlineSharingInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"

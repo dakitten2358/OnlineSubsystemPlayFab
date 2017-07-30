@@ -1,5 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
+#include "OnlineSubsystemPlayFabModule.h"
 #include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "ModuleManager.h"

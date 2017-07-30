@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "NboSerializer.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 

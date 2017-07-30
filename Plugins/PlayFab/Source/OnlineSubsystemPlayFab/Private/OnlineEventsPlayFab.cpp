@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineEventsPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "OnlineIdentityInterface.h"
@@ -10,9 +9,9 @@
 bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHAR* EventName, const FOnlineEventParms& Parms)
 {
 	// Is this a character event
-	bool characterEvent = FString(EventName).StartsWith("character_", ESearchCase::CaseSensitive);
+	bool characterEvent = FString(EventName).StartsWith("character_", ESearchCase::IgnoreCase);
 	// Is this a player event
-	bool playerEvent = FString(EventName).StartsWith("player_", ESearchCase::CaseSensitive);
+	bool playerEvent = FString(EventName).StartsWith("player_", ESearchCase::IgnoreCase);
 	// All others will default as title events
 
 	TMap<FString, PlayFab::FMultitypeVar> PlayFabParms;
@@ -23,7 +22,7 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 	}
 
 	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(PlayerId);
 	if (ServerAPI.IsValid())
 	{
 		if (characterEvent)
@@ -42,6 +41,7 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 			Request.PlayFabId = PlayerId.ToString();
 			Request.Body = PlayFabParms;
 			ServerAPI->WritePlayerEvent(Request);
+			UE_LOG_ONLINE(VeryVerbose, TEXT("Wrote Player Event %s"), EventName);
 		}
 		else
 		{
@@ -49,6 +49,7 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 			Request.EventName = EventName;
 			Request.Body = PlayFabParms;
 			ServerAPI->WriteTitleEvent(Request);
+			UE_LOG_ONLINE(VeryVerbose, TEXT("Wrote Title Event %s"), EventName);
 		}
 		return true;
 	}
@@ -74,6 +75,7 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 				Request.EventName = EventName;
 				Request.Body = PlayFabParms;
 				ClientAPI->WritePlayerEvent(Request);
+				UE_LOG_ONLINE(VeryVerbose, TEXT("Wrote Player Event %s"), EventName);
 			}
 			else
 			{
@@ -81,6 +83,7 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 				Request.EventName = EventName;
 				Request.Body = PlayFabParms;
 				ClientAPI->WriteTitleEvent(Request);
+				UE_LOG_ONLINE(VeryVerbose, TEXT("Wrote Title Event %s"), EventName);
 			}
 			return true;
 		}
@@ -94,5 +97,5 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 
 void FOnlineEventsPlayFab::SetPlayerSessionId(const FUniqueNetId& PlayerId, const FGuid& PlayerSessionId)
 {
-	
+
 }

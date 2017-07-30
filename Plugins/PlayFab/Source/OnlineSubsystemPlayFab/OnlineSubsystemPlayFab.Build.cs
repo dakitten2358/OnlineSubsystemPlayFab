@@ -8,6 +8,8 @@ public class OnlineSubsystemPlayFab : ModuleRules
     public OnlineSubsystemPlayFab(ReadOnlyTargetRules Target)
         : base(Target)
     {
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+
         Definitions.Add("ONLINESUBSYSTEMPLAYFAB_PACKAGE=1");
 
         PrivateDependencyModuleNames.AddRange(

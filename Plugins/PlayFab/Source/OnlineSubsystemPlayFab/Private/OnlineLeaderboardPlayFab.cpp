@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineLeaderboardPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "PlayFab.h"
@@ -13,13 +12,14 @@ bool FOnlineLeaderboardsPlayFab::ReadLeaderboards(const TArray<TSharedRef<const 
 		UE_LOG_ONLINE(Error, TEXT("FOnlineLeaderboardsPlayFab::ReadLeaderboards: Can't accept more then 1 player at a time due to PlayFab API"));
 		return false;
 	}
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
-	if (ClientAPI.IsValid())
+
+	if (true)
 	{
 		ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
 
 		for (TSharedRef<const FUniqueNetId> UserId : Players)
 		{
+			PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(UserId.Get());
 			PlayFab::ClientModels::FGetLeaderboardAroundPlayerRequest Request;
 			Request.StatisticName = ReadObject->LeaderboardName.ToString();
 			Request.MaxResultsCount = 1;
@@ -41,7 +41,7 @@ bool FOnlineLeaderboardsPlayFab::ReadLeaderboards(const TArray<TSharedRef<const 
 
 bool FOnlineLeaderboardsPlayFab::ReadLeaderboardsForFriends(int32 LocalUserNum, FOnlineLeaderboardReadRef& ReadObject)
 {
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 	if (ClientAPI.IsValid())
 	{
 		ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
@@ -72,7 +72,7 @@ bool FOnlineLeaderboardsPlayFab::ReadLeaderboardsAroundRank(int32 Rank, uint32 R
 
 bool FOnlineLeaderboardsPlayFab::ReadLeaderboardsAroundUser(TSharedRef<const FUniqueNetId> Player, uint32 Range, FOnlineLeaderboardReadRef& ReadObject)
 {
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(Player.Get());
 	if (ClientAPI.IsValid())
 	{
 		ReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
@@ -109,7 +109,7 @@ bool FOnlineLeaderboardsPlayFab::WriteLeaderboards(const FName& SessionName, con
 		return false;
 	}
 
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(Player);
 	if (ClientAPI.IsValid())
 	{
 		PlayFab::ClientModels::FUpdatePlayerStatisticsRequest Request;

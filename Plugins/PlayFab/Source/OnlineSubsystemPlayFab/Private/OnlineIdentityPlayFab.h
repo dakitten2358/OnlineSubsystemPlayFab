@@ -1,7 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
- 
+
+#include "CoreMinimal.h"
 #include "OnlineIdentityInterface.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
@@ -61,6 +62,8 @@ public:
 class FOnlineIdentityPlayFab : public IOnlineIdentity
 {
 private:
+	bool bAttemptingLogin;
+
 	/** Ids mapped to locally registered users */
 	TMap<int32, TSharedPtr<const FUniqueNetId>> UserIds;
 
@@ -71,15 +74,17 @@ private:
 	class FOnlineSubsystemPlayFab* PlayFabSubsystem;
 
 	/** Hidden on purpose */
-	FOnlineIdentityPlayFab() :
-		PlayFabSubsystem(NULL)
+	FOnlineIdentityPlayFab()
+		: PlayFabSubsystem(NULL)
+		, bAttemptingLogin(false)
 	{
 	}
 
 PACKAGE_SCOPE:
 
-	FOnlineIdentityPlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem) :
-		PlayFabSubsystem(InPlayFabSubsystem)
+	FOnlineIdentityPlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem)
+		: PlayFabSubsystem(InPlayFabSubsystem)
+		, bAttemptingLogin(false)
 	{
 	}
 
@@ -108,9 +113,7 @@ public:
 	virtual FString GetAuthType() const override;
 
 private:
-	PlayFab::UPlayFabClientAPI::FLoginWithPlayFabDelegate SuccessDelegate_Login;
 	void OnSuccessCallback_Login(const PlayFab::ClientModels::FLoginResult& Result, int32 LocalUserNum);
-	PlayFab::FPlayFabErrorDelegate ErrorDelegate_Login;
 	void OnErrorCallback_Login(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum);
 };
 

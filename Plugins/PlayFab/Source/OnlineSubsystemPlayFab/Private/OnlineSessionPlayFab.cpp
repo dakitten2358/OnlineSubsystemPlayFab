@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineSessionPlayFab.h"
 #include "OnlineIdentityInterface.h"
 #include "OnlineSubsystemPlayFab.h"
@@ -109,7 +108,7 @@ FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSes
 
 void FOnlineSessionInfoPlayFab::Init(const FOnlineSubsystemPlayFab& Subsystem)
 {
-	
+
 }
 
 void FOnlineSessionInfoPlayFab::InitLAN(const FOnlineSubsystemPlayFab& Subsystem)
@@ -158,11 +157,11 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayF
 			/** Owner of the session */
 			// Right now we're only doing dedi servers, so... no owner(for now)
 			//NewSession->OwningUserId = MakeShareable(new FUniqueNetIdString(""));
-			//NewSession->OwningUserName = 
+			//NewSession->OwningUserName =
 			/** Available Slots */
 			NewSession->NumOpenPrivateConnections = 0;
 			NewSession->NumOpenPublicConnections = GameInfo.MaxPlayers - GameInfo.PlayerUserIds.Num();
-			
+
 			FOnlineSessionInfoPlayFab* PlayFabSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::LobbySession, FUniqueNetIdString(GameInfo.LobbyID));
 			PlayFabSessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 			bool bIsValid;
@@ -868,7 +867,7 @@ bool FOnlineSessionPlayFab::StartMatchmaking(const TArray< TSharedRef<const FUni
 		return false;
 	}
 
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalPlayers[0].Get());
 	if (ClientAPI.IsValid())
 	{
 		CurrentMatchmakeName = SessionName;
@@ -949,7 +948,7 @@ bool FOnlineSessionPlayFab::FindSessions(int32 SearchingPlayerNum, const TShared
 			// remember the time at which we started search, as this will be used for a "good enough" ping estimation
 			SessionSearchStartInSeconds = FPlatformTime::Seconds();
 
-			Return = FindInternetSession(SearchSettings);
+			Return = FindInternetSession(SearchingPlayerNum, SearchSettings);
 		}
 		else
 		{
@@ -986,7 +985,7 @@ bool FOnlineSessionPlayFab::FindSessionById(const FUniqueNetId& SearchingUserId,
 	return true;
 }
 
-uint32 FOnlineSessionPlayFab::FindInternetSession(const TSharedRef<FOnlineSessionSearch>& SearchSettings)
+uint32 FOnlineSessionPlayFab::FindInternetSession(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
 	bool PresenceSearch = false;
 	if (SearchSettings->QuerySettings.Get(SEARCH_PRESENCE, PresenceSearch) && PresenceSearch)
@@ -996,7 +995,7 @@ uint32 FOnlineSessionPlayFab::FindInternetSession(const TSharedRef<FOnlineSessio
 	}
 	else
 	{
-		PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+		PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(SearchingPlayerNum);
 		if (ClientAPI.IsValid())
 		{
 			PlayFab::ClientModels::FCurrentGamesRequest Request;
@@ -1583,7 +1582,7 @@ void FOnlineSessionPlayFab::AppendSessionSettingsToPacket(FNboSerializeToBufferP
 {
 #if DEBUG_LAN_BEACON
 	UE_LOG_ONLINE(Verbose, TEXT("Sending session settings to client"));
-#endif 
+#endif
 
 	// Members of the session settings class
 	Packet << SessionSettings->NumPublicConnections
@@ -1830,4 +1829,3 @@ void FOnlineSessionPlayFab::SetPortFromNetDriver(const FOnlineSubsystemPlayFab& 
 		SessionInfoPlayFab->HostAddr->SetPort(NetDriverPort);
 	}
 }
-

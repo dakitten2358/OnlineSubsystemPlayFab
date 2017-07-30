@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineSharingPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "PlayFab.h"
@@ -14,7 +13,7 @@ void FOnlineSharingPlayFab::RequestCurrentPermissions(int32 LocalUserNum, FOnReq
 
 void FOnlineSharingPlayFab::GetCurrentPermissions(int32 LocalUserNum, TArray<FSharingPermission>& OutPermissions)
 {
-	
+
 }
 
 bool FOnlineSharingPlayFab::RequestNewReadPermissions(int32 LocalUserNum, EOnlineSharingCategory NewPermissions)
@@ -31,7 +30,7 @@ bool FOnlineSharingPlayFab::RequestNewPublishPermissions(int32 LocalUserNum, EOn
 
 bool FOnlineSharingPlayFab::ReadNewsFeed(int32 LocalUserNum, int32 NumPostsToRead /*= 50*/)
 {
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 	if (ClientAPI.IsValid())
 	{
 		if (!SuccessDelegate_Client_GetTitleNews.IsBound())

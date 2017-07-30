@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineStorePlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "PlayFab.h"
@@ -12,6 +11,7 @@ bool FOnlineStorePlayFab::QueryForAvailablePurchases(const TArray<FString>& Prod
 	if (ClientAPI.IsValid())
 	{
 		InReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
+
 		PlayFab::ClientModels::FGetStoreItemsRequest Request;
 		PlayFab::UPlayFabClientAPI::FGetStoreItemsDelegate SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetStoreItemsDelegate::CreateRaw(this, &FOnlineStorePlayFab::OnSuccessCallback_Client_GetStoreItems, &InReadObject);
 		PlayFab::FPlayFabErrorDelegate ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineStorePlayFab::OnErrorCallback, &InReadObject);
