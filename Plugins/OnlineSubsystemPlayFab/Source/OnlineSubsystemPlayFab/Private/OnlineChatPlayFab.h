@@ -122,6 +122,15 @@ public:
 	virtual TSharedPtr<FChatRoomMember> GetMember(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FUniqueNetId& MemberId) override;
 	virtual bool GetLastMessages(const FUniqueNetId& UserId, const FChatRoomId& RoomId, int32 NumMessages, TArray<TSharedRef<FChatMessage>>& OutMessages) override;
 	virtual void DumpChatState() const override;
+
+	virtual void XmppSetupDelegates(const TSharedRef<IXmppConnection> XmppConnection);
+	virtual void XmppClearDelegates(const TSharedRef<IXmppConnection> XmppConnection);
+	virtual void XmppOnRoomChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppRoomId& RoomId, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage);
+	virtual void XmppOnPrivateChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage);
+
+protected:
+	FDelegateHandle OnRoomChatReceived;
+	FDelegateHandle OnPrivateChatReceived;
 };
 
 typedef TSharedPtr<FOnlineChatPlayFab, ESPMode::ThreadSafe> FOnlineChatPlayFabPtr;

@@ -1,0 +1,35 @@
+{
+  "FileVersion": 3,
+  "FriendlyName": "OnlineSubsystemPlayFab",
+  "Version": 0,
+  "EngineVersion" : "4.17.0",
+  "VersionName": "0.0.170313",
+  "CreatedBy": "PlayFab",
+  "CreatedByURL": "https://playfab.com/",
+  "DocsURL": "https://api.playfab.com/",
+  "SupportURL": "https://community.playfab.com/index.html",
+  "Category": "PlayFab",
+  "Description": "Online Subsystem for the PlayFab UE4 SDK",
+  "WhitelistPlatforms": [ "Win64", "Win32", "Mac", "IOS", "Android" ],
+  "Modules": [
+    {
+      "Name": "OnlineSubsystemPlayFab",
+      "Type": "Runtime",
+      "LoadingPhase": "PreDefault"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "PlayFab",
+      "Enabled": true
+    },
+    {
+      "Name": "OnlineSubsystem",
+      "Enabled": true
+    },
+    {
+      "Name": "OnlineSubsystemUtils",
+      "Enabled": true
+    }
+  ]
+}

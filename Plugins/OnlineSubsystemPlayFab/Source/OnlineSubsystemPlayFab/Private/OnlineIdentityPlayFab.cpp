@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityPlayFab.h"
+#include "OnlineSubsystemPlayFab.h"
+#include "OnlineChatPlayFab.h"
 #include "PlayFab.h"
 #include "Xmpp.h"
 
@@ -53,11 +55,11 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 	FString ErrorStr;
 
 	// valid local player index
-	if (GetLoginStatus(LocalUserNum) == ELoginStatus::LoggedIn)
+	/*if (GetLoginStatus(LocalUserNum) == ELoginStatus::LoggedIn)
 	{
 		ErrorStr = TEXT("Already logged in! Logout first");
 	}
-	else if (bAttemptingLogin)
+	else */if (bAttemptingLogin)
 	{
 		ErrorStr = TEXT("Already attempting login!");
 	}
@@ -71,6 +73,7 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 	}
 	else
 	{
+		PlayFabClientPtr PlayFabClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
 		PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 		if (ClientAPI.IsValid())
 		{
@@ -93,6 +96,10 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithPlayFab(Request, SuccessDelegate_Login, ErrorDelegate_Login);
+				if (PlayFabClientAPI->IsClientLoggedIn())
+				{
+					PlayFabClientAPI->LoginWithPlayFab(Request);
+				}
 			}
 			else if (AccountCredentials.Type == "email")
 			{
@@ -105,6 +112,10 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithEmailAddress(Request, SuccessDelegate_Login, ErrorDelegate_Login);
+				if (PlayFabClientAPI->IsClientLoggedIn())
+				{
+					PlayFabClientAPI->LoginWithEmailAddress(Request);
+				}
 			}
 			else if (AccountCredentials.Type == "customid")
 			{
@@ -117,6 +128,10 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithCustomID(Request, SuccessDelegate_Login, ErrorDelegate_Login);
+				if (PlayFabClientAPI->IsClientLoggedIn())
+				{
+					PlayFabClientAPI->LoginWithCustomID(Request);
+				}
 			}
 			else if (AccountCredentials.Type == "steam")
 			{
@@ -129,6 +144,10 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithSteam(Request, SuccessDelegate_Login, ErrorDelegate_Login);
+				if (PlayFabClientAPI->IsClientLoggedIn())
+				{
+					PlayFabClientAPI->LoginWithSteam(Request);
+				}
 			}
 			else
 			{
@@ -159,6 +178,7 @@ bool FOnlineIdentityPlayFab::Logout(int32 LocalUserNum)
 		if (PlayFabSubsystem->IsXmppEnabled())
 		{
 			TSharedRef<IXmppConnection> XmppConnection = FXmppModule::Get().CreateConnection(UserId->ToString());
+			static_cast<FOnlineChatPlayFab*>(PlayFabSubsystem->GetChatInterface().Get())->XmppClearDelegates(XmppConnection);
 			XmppConnection->Logout();
 			FXmppModule::Get().RemoveConnection(UserId->ToString());
 		}
@@ -382,8 +402,9 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 
 		FXmppServer ServerRequest;
 		ServerRequest.AppId = PlayFabSubsystem->GetAppId();
-		ServerRequest.ClientResource = "test";
-		ServerRequest.Domain = "localhost";
+		ServerRequest.ClientResource = "UE4";
+		ServerRequest.Domain = PlayFabSubsystem->GetAppId();
+		ServerRequest.ServerPort = 5222;
 		ServerRequest.ServerAddr = "192.168.175.129";
 		ServerRequest.bUseSSL = false; // This is me avoiding dealing with certificates
 		ServerRequest.bUsePlainTextAuth = true; // For some reason Prosody doesn't seem to like non-plain auth?
@@ -391,6 +412,9 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 		XmppConnection->SetServer(ServerRequest);
 
 		XmppConnection->Login(UserAccountPtr->GetUserId()->ToString(), Result.SessionTicket);
+		IOnlineChat* OnlineChat = PlayFabSubsystem->GetChatInterface().Get();
+		FOnlineChatPlayFab* PlayFabChat = static_cast<FOnlineChatPlayFab*>(OnlineChat);
+		PlayFabChat->XmppSetupDelegates(XmppConnection);
 	}
 }
 

@@ -71,6 +71,7 @@ public:
     virtual bool Init() override;
     virtual bool Shutdown() override;
     virtual FString GetAppId() const override;
+	virtual FText GetOnlineServiceName() const override;
     virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
 	inline FString GetBuildVersion() const;

@@ -3,18 +3,17 @@ This is an Online Subsystem for the Unreal Engine 4, using PlayFab.
 
 ## Requirements
 This requires:  
-PlayFab C++ from here: https://github.com/PlayFab/UnrealCppSdk  
+~~PlayFab C++ from here: https://github.com/PlayFab/UnrealCppSdk ~~  
+PlayFab C++ from here: https://gitlab.com/mtuska/PlayFab-UnrealCPP/  
 
 For OnlineSubsystem in blueprints:  
 Advanced Sessions Plugin from here: https://bitbucket.org/mordentral/advancedsessionsplugin/downloads/  
 You only require AdvancedSessions, AdvancedSessionsSteam is for, well, Steam.  
 
 # Installing Subsystem
-Alright, so here we go, to get started, download the PlayFab C++ SDK from above.  
-Now that we have that, go into PlayFab/Source and delete the OnlineSubsystemPlayFab.  
-That standard OnlineSubsystem is useless, full of null pointers, so it had no effect.  
-Now, download this plugin, and merge it with the PlayFab plugin.  
-To finish, open your Config/DefaultEngine.ini and add:
+Alright, so here we go, to get started, download the PlayFab C++ SDK from above.
+Add the OnlineSubsystemPlayFab into your Plugins.
+Open your Config/DefaultEngine.ini and add:
 
 ```ini
 [OnlineSubsystem]

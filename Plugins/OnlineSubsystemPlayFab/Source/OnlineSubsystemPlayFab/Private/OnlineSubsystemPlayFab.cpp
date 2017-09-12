@@ -4,6 +4,7 @@
 
 // Interfaces
 #include "OnlineAchievementsPlayFab.h"
+#include "OnlineChatInterface.h"
 #include "OnlineEntitlementsPlayFab.h"
 #include "OnlineEventsPlayFab.h"
 #include "OnlineExternalUIPlayFab.h"
@@ -25,6 +26,8 @@
 #include "Core/PlayFabSettings.h"
 
 
+#define LOCTEXT_NAMESPACE "FOnlineSubsystemPlayFab" 
+
 // ============================
 // ===== Start Interfaces =====
 // ============================
@@ -36,7 +39,7 @@ IOnlineAchievementsPtr FOnlineSubsystemPlayFab::GetAchievementsInterface() const
 
 IOnlineChatPtr FOnlineSubsystemPlayFab::GetChatInterface() const
 {
-	return nullptr;
+	return ChatInterface;
 }
 
 IOnlineEntitlementsPtr FOnlineSubsystemPlayFab::GetEntitlementsInterface() const
@@ -188,6 +191,7 @@ PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI(const FUniqueNetId& UserI
 bool FOnlineSubsystemPlayFab::Init()
 {
 	AchievementsInterface = MakeShareable(new FOnlineAchievementsPlayFab(this));
+	ChatInterface = MakeShareable(new FOnlineChatPlayFab(this));
 	EntitlementsInterface = MakeShareable(new FOnlineEntitlementsPlayFab(this));
 	EventsInterface = MakeShareable(new FOnlineEventsPlayFab(this));
 	ExternalUIInterface = MakeShareable(new FOnlineExternalUIPlayFab(this));
@@ -222,6 +226,7 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 	FOnlineSubsystemImpl::Shutdown();
 
 	AchievementsInterface = nullptr;
+	ChatInterface = nullptr;
 	EntitlementsInterface = nullptr;
 	EventsInterface = nullptr;
 	ExternalUIInterface = nullptr;
@@ -242,6 +247,11 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 FString FOnlineSubsystemPlayFab::GetAppId() const
 {
 	return IPlayFabModuleInterface::Get().GetTitleId();
+}
+
+FText FOnlineSubsystemPlayFab::GetOnlineServiceName() const
+{
+	return LOCTEXT("PlayFab", "PlayFab");
 }
 
 bool FOnlineSubsystemPlayFab::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
@@ -287,4 +297,6 @@ bool FOnlineSubsystemPlayFab::IsXmppEnabled()
 
 	return bEnableXmpp;
 }
+
+#undef LOCTEXT_NAMESPACE
 

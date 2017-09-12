@@ -291,3 +291,25 @@ void FOnlineChatPlayFab::DumpChatState() const
 	XmppConnection->MultiUserChat()->DumpMultiUserChatState();*/
 }
 
+void FOnlineChatPlayFab::XmppSetupDelegates(const TSharedRef<IXmppConnection> XmppConnection)
+{
+	OnRoomChatReceived = XmppConnection->MultiUserChat()->OnRoomChatReceived().AddRaw(this, &FOnlineChatPlayFab::XmppOnRoomChatReceived);
+	OnPrivateChatReceived = XmppConnection->PrivateChat()->OnReceiveChat().AddRaw(this, &FOnlineChatPlayFab::XmppOnPrivateChatReceived);
+}
+
+void FOnlineChatPlayFab::XmppClearDelegates(const TSharedRef<IXmppConnection> XmppConnection)
+{
+	//OnRoomChatReceived.Reset();
+	//OnPrivateChatReceived.Reset();
+}
+
+void FOnlineChatPlayFab::XmppOnRoomChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppRoomId& RoomId, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage)
+{
+	TriggerOnChatRoomMessageReceivedDelegates(FUniqueNetIdString(UserId.Id), FChatRoomId(RoomId), MakeShareable(new FChatMessagePlayFab(XmppMessage)));
+}
+
+void FOnlineChatPlayFab::XmppOnPrivateChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage)
+{
+	TriggerOnChatPrivateMessageReceivedDelegates(FUniqueNetIdString(UserId.Id), MakeShareable(new FChatMessagePlayFab(XmppMessage)));
+}
+

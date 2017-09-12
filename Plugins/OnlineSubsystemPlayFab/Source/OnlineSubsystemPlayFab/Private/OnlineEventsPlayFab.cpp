@@ -14,10 +14,10 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 	bool playerEvent = FString(EventName).StartsWith("player_", ESearchCase::IgnoreCase);
 	// All others will default as title events
 
-	TMap<FString, PlayFab::FMultitypeVar> PlayFabParms;
+	TMap<FString, PlayFab::FJsonKeeper> PlayFabParms;
 	for (auto Elem : Parms)
 	{
-		PlayFab::FMultitypeVar& Var = PlayFabParms.FindOrAdd(Elem.Key.ToString());
+		PlayFab::FJsonKeeper& Var = PlayFabParms.FindOrAdd(Elem.Key.ToString());
 		Var = Elem.Value.ToString();
 	}
 
