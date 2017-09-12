@@ -428,7 +428,7 @@ uint32 FOnlineSessionPlayFab::CreateInternetSession(int32 HostingPlayerNum, clas
 						}
 
 						const FOnlineSessionSetting* RegionSetting = Session->SessionSettings.Settings.Find(SETTING_REGION);
-						Request.pfRegion = PlayFab::readRegionFromValue(RegionSetting->ToString());
+						Request.pfRegion = PlayFab::ServerModels::readRegionFromValue(RegionSetting->ToString());
 
 						bool bCanBindAll;
 						TSharedPtr<class FInternetAddr> HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalHostAddr(*GLog, bCanBindAll);
@@ -813,11 +813,11 @@ bool FOnlineSessionPlayFab::StartMatchmaking(const TArray< TSharedRef<const FUni
 		FString OutValue;
 		if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
 		{
-			Request.pfRegion = PlayFab::readRegionFromValue(OutValue);
+			Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
 		}
 		else
 		{
-			Request.pfRegion = PlayFab::readRegionFromValue(OutValue);
+			Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
 		}
 		//Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
 
@@ -936,11 +936,11 @@ uint32 FOnlineSessionPlayFab::FindInternetSession(int32 SearchingPlayerNum, cons
 			FString OutValue;
 			if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
 			{
-				Request.pfRegion = PlayFab::readRegionFromValue(OutValue);
+				Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
 			}
 			else
 			{
-				Request.pfRegion = PlayFab::readRegionFromValue(OutValue);
+				Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
 			}
 			//Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
 
