@@ -42,7 +42,7 @@ Make sure to call Destroy Session when the player leaves a server, or else they 
 
 ##### Servers
 So, if you are submitting builds to PlayFab, then your Secret key will be provided via command line, no worries about trying to provide it.  
-If you're not submitting your builds to PlayFab, then you need to add an argument when running the server, "-title_secret_key=YOUR_KEY_HERE"  
+If you're not submitting your builds to PlayFab, then you need to add an argument when running the server, "-title_secret_key=YOUR_KEY_HERE"(Unless you have Secret Key set in the Project Settings)  
 Please, never ever ever give out your client/server builds with the secret key filled in, in the project settings!  
 
 After that discussion, on to the actual steps of a server(I call most of these inside GameInstance, so assume those functions):  
