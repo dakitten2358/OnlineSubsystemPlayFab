@@ -13,14 +13,14 @@ bool FOnlineTimePlayFab::QueryServerUtcTime()
 		return false;
 	}
 	bCatchingServerTime = true;
-	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
+	PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI();
 	if (ServerAPI.IsValid())
 	{
 		ServerAPI->GetTime(PlayFab::UPlayFabServerAPI::FGetTimeDelegate::CreateRaw(this, &FOnlineTimePlayFab::OnSuccessCallback_S_GetTime), PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineTimePlayFab::OnErrorCallback_GetTime));
 		return true;
 	}
-	else if (ClientAPI.IsValid())
+	else if (ClientAPI->IsClientLoggedIn())
 	{
 		ClientAPI->GetTime(PlayFab::UPlayFabClientAPI::FGetTimeDelegate::CreateRaw(this, &FOnlineTimePlayFab::OnSuccessCallback_C_GetTime), PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineTimePlayFab::OnErrorCallback_GetTime));
 		return true;
@@ -44,7 +44,6 @@ void FOnlineTimePlayFab::OnSuccessCallback_S_GetTime(const PlayFab::ServerModels
 	CachedUTC = Result.Time.ToString();
 	TriggerOnQueryServerUtcTimeCompleteDelegates(true, CachedUTC, TEXT(""));
 }
-
 
 void FOnlineTimePlayFab::OnSuccessCallback_C_GetTime(const PlayFab::ClientModels::FGetTimeResult& Result)
 {

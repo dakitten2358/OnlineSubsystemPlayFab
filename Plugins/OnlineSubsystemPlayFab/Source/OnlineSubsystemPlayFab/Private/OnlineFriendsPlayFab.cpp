@@ -44,12 +44,21 @@ const FOnlineUserPresence& FOnlineFriendPlayFab::GetPresence() const
 
 bool FOnlineFriendsPlayFab::ReadFriendsList(int32 LocalUserNum, const FString& ListName, const FOnReadFriendsListComplete& Delegate /*= FOnReadFriendsListComplete()*/)
 {
-	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+	//PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
 	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
-	if (ServerAPI.IsValid())
+	/*if (ServerAPI.IsValid())
 	{
 		PlayFab::ServerModels::FGetFriendsListRequest Request;
-		Request.PlayFabId = PlayFabSubsystem->GetIdentityInterface()->GetUniquePlayerId(LocalUserNum)->ToString();
+		TSharedPtr<const FUniqueNetId> UserId = PlayFabSubsystem->GetIdentityInterface()->GetUniquePlayerId(LocalUserNum);
+		if (UserId.IsValid())
+		{
+			Request.PlayFabId = UserId->ToString();
+		}
+		else
+		{
+			UE_LOG_ONLINE(Error, TEXT("Wasn't able to get identity on server"));
+			return false;
+		}
 		Request.IncludeFacebookFriends = false;
 		Request.IncludeSteamFriends = false;
 		PlayFab::UPlayFabServerAPI::FGetFriendsListDelegate SuccessDelegate_GetFriendsList;
@@ -59,22 +68,21 @@ bool FOnlineFriendsPlayFab::ReadFriendsList(int32 LocalUserNum, const FString& L
 		ServerAPI->GetFriendsList(Request, SuccessDelegate_GetFriendsList, ErrorDelegate_GetFriendsList);
 		return true;
 	}
-	else if (ClientAPI.IsValid())
+	else */if (ClientAPI.IsValid())
 	{
 		PlayFab::ClientModels::FGetFriendsListRequest Request;
 		Request.IncludeFacebookFriends = false;
 		Request.IncludeSteamFriends = false;
-		PlayFab::UPlayFabClientAPI::FGetFriendsListDelegate SuccessDelegate_GetFriendsList;
-		SuccessDelegate_GetFriendsList.CreateRaw(this, &FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList, LocalUserNum, &ListName, &Delegate);
-		PlayFab::FPlayFabErrorDelegate ErrorDelegate_GetFriendsList;
-		ErrorDelegate_GetFriendsList.CreateRaw(this, &FOnlineFriendsPlayFab::OnErrorCallback_GetFriendsList, LocalUserNum, &ListName, &Delegate);
-		ClientAPI->GetFriendsList(Request, SuccessDelegate_GetFriendsList, ErrorDelegate_GetFriendsList);
+		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetFriendsListDelegate::CreateRaw(this, &FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList, LocalUserNum, ListName, Delegate);
+		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineFriendsPlayFab::OnErrorCallback_GetFriendsList, LocalUserNum, ListName, Delegate);
+		ClientAPI->GetFriendsList(Request, SuccessDelegate, ErrorDelegate);
 		return true;
 	}
 	else
 	{
 		UE_LOG_ONLINE(Error, TEXT("PlayFab Client Interface not available"));
 	}
+	Delegate.ExecuteIfBound(LocalUserNum, false, ListName, TEXT("Unknwon error occured"));
 	return false;
 }
 
@@ -130,7 +138,7 @@ bool FOnlineFriendsPlayFab::DeleteFriend(int32 LocalUserNum, const FUniqueNetId&
 	{
 		UE_LOG_ONLINE(Error, TEXT("PlayFab Client Interface not available"));
 	}
-	TriggerOnDeleteFriendCompleteDelegates(LocalUserNum, false, FriendId, ListName, TEXT("DeleteFriend() is not supported"));
+	TriggerOnDeleteFriendCompleteDelegates(LocalUserNum, false, FriendId, ListName, TEXT("DeleteFriend() failed"));
 	return false;
 }
 
@@ -186,16 +194,19 @@ bool FOnlineFriendsPlayFab::GetRecentPlayers(const FUniqueNetId& UserId, const F
 
 bool FOnlineFriendsPlayFab::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
 {
+	TriggerOnBlockedPlayerCompleteDelegates(LocalUserNum, false, PlayerId, TEXT(""), TEXT("not implemented"));
 	return false;
 }
 
 bool FOnlineFriendsPlayFab::UnblockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
 {
+	TriggerOnUnblockedPlayerCompleteDelegates(LocalUserNum, false, PlayerId, TEXT(""), TEXT("not implemented"));
 	return false;
 }
 
 bool FOnlineFriendsPlayFab::QueryBlockedPlayers(const FUniqueNetId& UserId)
 {
+	TriggerOnQueryBlockedPlayersCompleteDelegates(UserId, false, TEXT("not implemented"));
 	return false;
 }
 
@@ -206,10 +217,10 @@ bool FOnlineFriendsPlayFab::GetBlockedPlayers(const FUniqueNetId& UserId, TArray
 
 void FOnlineFriendsPlayFab::DumpBlockedPlayers() const
 {
-
+	
 }
 
-void FOnlineFriendsPlayFab::OnSuccessCallback_Server_GetFriendsList(const PlayFab::ServerModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString* ListName, const FOnReadFriendsListComplete* Delegate)
+void FOnlineFriendsPlayFab::OnSuccessCallback_Server_GetFriendsList(const PlayFab::ServerModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate)
 {
 	TArray<TSharedRef<FOnlineFriendPlayFab>>& FriendsList = FriendsLists.FindOrAdd(LocalUserNum);
 
@@ -220,7 +231,7 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Server_GetFriendsList(const PlayFa
 
 		if (!FriendInfo.CurrentMatchmakerLobbyId.IsEmpty())
 		{
-			Friend->Presence.SessionId = MakeShareable(new FUniqueNetIdString(FriendInfo.CurrentMatchmakerLobbyId));
+			Friend->Presence.SessionId = MakeShareable(new FUniqueNetIdPlayFabId(FriendInfo.CurrentMatchmakerLobbyId));
 			Friend->Presence.bIsJoinable = false;
 			Friend->Presence.bIsOnline = true;
 			Friend->Presence.bIsPlaying = true;
@@ -236,10 +247,10 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Server_GetFriendsList(const PlayFa
 		Friend->DisplayName = FriendInfo.TitleDisplayName;
 	}
 
-	Delegate->Execute(LocalUserNum, true, *ListName, TEXT(""));
+	Delegate.ExecuteIfBound(LocalUserNum, true, ListName, TEXT(""));
 }
 
-void FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList(const PlayFab::ClientModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString* ListName, const FOnReadFriendsListComplete* Delegate)
+void FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList(const PlayFab::ClientModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate)
 {
 	TArray<TSharedRef<FOnlineFriendPlayFab>>& FriendsList = FriendsLists.FindOrAdd(LocalUserNum);
 
@@ -250,13 +261,13 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList(const PlayFa
 
 		if (!FriendInfo.CurrentMatchmakerLobbyId.IsEmpty())
 		{
-			Friend->Presence.SessionId = MakeShareable(new FUniqueNetIdString(FriendInfo.CurrentMatchmakerLobbyId));
+			Friend->Presence.SessionId = MakeShareable(new FUniqueNetIdPlayFabId(FriendInfo.CurrentMatchmakerLobbyId));
 			Friend->Presence.bIsJoinable = false;
 			Friend->Presence.bIsOnline = true;
 			Friend->Presence.bIsPlaying = true;
 			Friend->Presence.bIsPlayingThisGame = true;
 			Friend->Presence.Status.State = EOnlinePresenceState::Online;
-			Friend->Presence.Status.StatusStr = "Playing Empires";
+			Friend->Presence.Status.StatusStr = "Playing";
 		}
 		else
 		{
@@ -266,10 +277,10 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList(const PlayFa
 		Friend->DisplayName = FriendInfo.TitleDisplayName;
 	}
 
-	Delegate->Execute(LocalUserNum, true, *ListName, TEXT(""));
+	Delegate.ExecuteIfBound(LocalUserNum, true, ListName, TEXT(""));
 }
 
-void FOnlineFriendsPlayFab::OnErrorCallback_GetFriendsList(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const FString* ListName, const FOnReadFriendsListComplete* Delegate)
+void FOnlineFriendsPlayFab::OnErrorCallback_GetFriendsList(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate)
 {
-	Delegate->Execute(LocalUserNum, false, *ListName, ErrorResult.ErrorMessage);
+	Delegate.ExecuteIfBound(LocalUserNum, false, ListName, ErrorResult.ErrorMessage);
 }

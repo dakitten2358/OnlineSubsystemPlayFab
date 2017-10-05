@@ -15,6 +15,15 @@
 #include "Core/PlayFabClientDataModels.h"
 
 /**
+* Delegate fired when a player is authenicated(or not)
+*
+* @param UserId the user this authentication is for
+* @param bWasSuccessful true if the authentication was valid, false if not or error
+*/
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnAuthenticatePlayerComplete, const FUniqueNetId& /*UserId*/, bool);
+typedef FOnAuthenticatePlayerComplete::FDelegate FOnAuthenticatePlayerCompleteDelegate;
+
+/**
 * Interface definition for the online services session services
 * Session services are defined as anything related managing a session
 * and its state within a platform service
@@ -32,23 +41,24 @@ private:
 	FTimerHandle TimerHandle_PlayFabHeartbeat;
 	FTimerDelegate TimerDelegate_PlayFabHeartbeat;
 
-	PlayFab::UPlayFabClientAPI::FGetCurrentGamesDelegate SuccessDelegate_Client_GetCurrentGames;
-	PlayFab::UPlayFabClientAPI::FMatchmakeDelegate SuccessDelegate_Client_Matchmake;
-	PlayFab::FPlayFabErrorDelegate ErrorDelegate_Client;
-
 	void OnSuccessCallback_Client_GetCurrentGames(const PlayFab::ClientModels::FCurrentGamesResult& Result);
 	void OnSuccessCallback_Client_Matchmake(const PlayFab::ClientModels::FMatchmakeResult& Result, FName SessionName);
-	void OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult);
-
-	PlayFab::UPlayFabServerAPI::FRegisterGameDelegate SuccessDelegate_Server_RegisterGame;
-	PlayFab::UPlayFabServerAPI::FDeregisterGameDelegate SuccessDelegate_Server_DeregisterGame;
-	PlayFab::FPlayFabErrorDelegate ErrorDelegate_Server;
+	void OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName);
+	void OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName);
 
 	void OnSuccessCallback_Server_RegisterGame(const PlayFab::ServerModels::FRegisterGameResponse& Result, FName SessionName);
 	void OnSuccessCallback_Server_DeregisterGame(const PlayFab::ServerModels::FDeregisterGameResponse& Result, FName SessionName);
-	void OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName SessionName);
+	void OnSuccessCallback_Server_InstanceState(const PlayFab::ServerModels::FSetGameServerInstanceStateResult& Result, FName SessionName);
+	void OnSuccessCallback_Server_InstanceData(const PlayFab::ServerModels::FSetGameServerInstanceDataResult& Result, FName SessionName);
+	void OnSuccessCallback_Server_AuthenticateSessionTicket(const PlayFab::ServerModels::FAuthenticateSessionTicketResult& Result, FName SessionName);
+	void OnSuccessCallback_Server_RedeemMatchmakerTicket(const PlayFab::ServerModels::FRedeemMatchmakerTicketResult& Result, FName SessionName);
+	void OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName);
+	void OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName, TSharedRef<FUniqueNetId> PlayerId);
 
 	void PlayFab_Server_Heartbeat(FName SessionName);
+
+	void PlayerJoined(const FUniqueNetId& PlayerId, FName SessionName);
+	void PlayerLeft(const FUniqueNetId& PlayerId, FName SessionName);
 
 	/** Hidden on purpose */
 	FOnlineSessionPlayFab()
@@ -71,7 +81,7 @@ private:
 			if (Session.SessionInfo.IsValid())
 			{
 				FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)Session.SessionInfo.Get();
-				if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost)
+				if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionPlayFab || SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost)
 				{
 					return &Sessions[SearchIndex];
 				}
@@ -88,16 +98,7 @@ private:
 	void TickLanTasks(float DeltaTime);
 
 	/**
-	*	Destroy an internet session, advertised on the Steam backend
-	*
-	* @param Session session to destroy
-	*
-	* @return ERROR_SUCCESS if successful, an error code otherwise
-	*/
-	uint32 DestroyInternetSession(class FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate);
-
-	/**
-	*	Create a game server session, advertised on the Steam backend
+	*	Create a game server session, advertised on the PlayFab backend
 	*
 	* @param HostingPlayerNum local index of the user initiating the request
 	* @param Session newly allocated session to create
@@ -115,6 +116,25 @@ private:
 	* @return ERROR_SUCCESS if successful, an error code otherwise
 	*/
 	uint32 CreateLANSession(int32 HostingPlayerNum, class FNamedOnlineSession* Session);
+
+	/**
+	*	Update online session data
+	*
+	* @param Session Session to update online service for
+	*
+	* @return ERROR_SUCCESS if successful, an error code otherwise
+	*/
+	uint32 UpdateInternetSession(FNamedOnlineSession* Session);
+
+	/**
+	*	Destroy an internet session, advertised on the PlayFab backend
+	*
+	* @param Session session to destroy
+	* @param CompletionDelegate Delegate of completion
+	*
+	* @return ERROR_SUCCESS if successful, an error code otherwise
+	*/
+	uint32 DestroyInternetSession(class FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate);
 
 	/**
 	*	Join a game server session, advertised on the Steam backend
@@ -339,6 +359,30 @@ public:
 
 		return false;
 	}
+
+	static FOnlineSessionPlayFab* GetOnlineSessionPlayFab(IOnlineSubsystem* Subsystem);
+
+	/**
+	 * Begins authentication of the player specified
+	 * NOTE: user authorization is an async process and does not complete
+	 * until the OnAuthenticatePlayerComplete delegate is called.
+	 *
+	 * @param PlayerId the id to authenticate
+	 * @param SessionName the name to use for this session so that multiple sessions can exist at the same time
+	 * @param SessionTicket the authorization ticket
+	 * @param bIsMatchmakeTicket is the ticket from a Client/Matchmake call
+	 *
+	 * @return true if successfully authenticating the player, false otherwise
+	 */
+	bool AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString SessionTicket, bool bIsMatchmakeTicket);
+
+	/**
+	 * Delegate fired when a session create request has completed
+	 *
+	 * @param SessionName the name of the session this callback is for
+	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
+	 */
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnAuthenticatePlayerComplete, const FUniqueNetId&, bool);
 
 	// IOnlineSession
 	virtual bool CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings) override;

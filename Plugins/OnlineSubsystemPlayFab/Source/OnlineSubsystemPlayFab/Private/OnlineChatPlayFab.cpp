@@ -10,14 +10,14 @@
 
 FChatRoomInfoPlayFab::FChatRoomInfoPlayFab()
 	: XmppRoomInfo(FXmppRoomInfo())
-	, OwnerId(MakeShareable(new FUniqueNetIdString(XmppRoomInfo.OwnerId)))
+	, OwnerId(MakeShareable(new FUniqueNetIdPlayFabId(XmppRoomInfo.OwnerId)))
 {
 
 }
 
 FChatRoomInfoPlayFab::FChatRoomInfoPlayFab(FXmppRoomInfo InXmppRoomInfo)
 	: XmppRoomInfo(InXmppRoomInfo)
-	, OwnerId(MakeShareable(new FUniqueNetIdString(XmppRoomInfo.OwnerId)))
+	, OwnerId(MakeShareable(new FUniqueNetIdPlayFabId(XmppRoomInfo.OwnerId)))
 {
 	RoomConfig.bPasswordRequired = XmppRoomInfo.bIsPrivate;
 }
@@ -59,14 +59,14 @@ FString FChatRoomInfoPlayFab::ToDebugString() const
 
 void FChatRoomInfoPlayFab::SetChatInfo(const TSharedRef<class FJsonObject>& JsonInfo)
 {
-	
+
 }
 
 
 /*************/
 FChatRoomMemberPlayFab::FChatRoomMemberPlayFab(FXmppChatMemberPtr InXmppMember /*= nullptr*/)
 	: XmppMember(InXmppMember)
-	, UserId(MakeShareable(new FUniqueNetIdString(XmppMember.IsValid() ? XmppMember->MemberJid.Id : "")))
+	, UserId(MakeShareable(new FUniqueNetIdPlayFabId(XmppMember.IsValid() ? XmppMember->MemberJid.Id : "")))
 {
 	if (!XmppMember.IsValid())
 	{
@@ -87,7 +87,7 @@ const FString& FChatRoomMemberPlayFab::GetNickname() const
 /*************/
 FChatMessagePlayFab::FChatMessagePlayFab(TSharedPtr<FXmppChatMessage> InXmppMessage /*= nullptr*/)
 	: XmppMessage(InXmppMessage)
-	, UserId(MakeShareable(new FUniqueNetIdString(XmppMessage.IsValid() ? XmppMessage->FromJid.Id : "")))
+	, UserId(MakeShareable(new FUniqueNetIdPlayFabId(XmppMessage.IsValid() ? XmppMessage->FromJid.Id : "")))
 {
 	if (!XmppMessage.IsValid())
 	{
@@ -204,7 +204,7 @@ bool FOnlineChatPlayFab::IsChatAllowed(const FUniqueNetId& UserId, const FUnique
 	/*TSharedPtr<FOnlineUserPresence> Presence;
 	if (PlayFabSubsystem->GetPresenceInterface()->GetCachedPresence(RecipientId, Presence) == EOnlineCachedResult::Success)
 	{
-		
+
 	}*/
 	return true; // Dunno what else to do yet.
 }
@@ -305,11 +305,10 @@ void FOnlineChatPlayFab::XmppClearDelegates(const TSharedRef<IXmppConnection> Xm
 
 void FOnlineChatPlayFab::XmppOnRoomChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppRoomId& RoomId, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage)
 {
-	TriggerOnChatRoomMessageReceivedDelegates(FUniqueNetIdString(UserId.Id), FChatRoomId(RoomId), MakeShareable(new FChatMessagePlayFab(XmppMessage)));
+	TriggerOnChatRoomMessageReceivedDelegates(FUniqueNetIdPlayFabId(UserId.Id), FChatRoomId(RoomId), MakeShareable(new FChatMessagePlayFab(XmppMessage)));
 }
 
 void FOnlineChatPlayFab::XmppOnPrivateChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage)
 {
-	TriggerOnChatPrivateMessageReceivedDelegates(FUniqueNetIdString(UserId.Id), MakeShareable(new FChatMessagePlayFab(XmppMessage)));
+	TriggerOnChatPrivateMessageReceivedDelegates(FUniqueNetIdPlayFabId(UserId.Id), MakeShareable(new FChatMessagePlayFab(XmppMessage)));
 }
-

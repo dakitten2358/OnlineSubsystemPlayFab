@@ -45,8 +45,8 @@ public:
 	virtual bool RestorePurchases(const TArray<FInAppPurchaseProductRequest>& ConsumableProductFlags, FOnlineInAppPurchaseRestoreReadRef& InReadObject) override;
 
 private:
-	void OnSuccessCallback_Client_GetStoreItems(const PlayFab::ClientModels::FGetStoreItemsResult& Result, FOnlineProductInformationReadRef* InReadObject);
-	void OnErrorCallback(const PlayFab::FPlayFabError& ErrorResult, FOnlineProductInformationReadRef* InReadObject);
+	void OnSuccessCallback_Client_GetCatalogItems(const PlayFab::ClientModels::FGetCatalogItemsResult& Result, FOnlineProductInformationReadRef* InReadObject);
+	void OnErrorCallback_Client_GetCatalogItems(const PlayFab::FPlayFabError& ErrorResult, FOnlineProductInformationReadRef* InReadObject);
 };
 
 typedef TSharedPtr<FOnlineStorePlayFab, ESPMode::ThreadSafe> FOnlineStorePlayFabPtr;

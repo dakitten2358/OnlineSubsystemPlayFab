@@ -53,6 +53,17 @@ After that discussion, on to the actual steps of a server(I call most of these i
 
 That should be it for the server.
 
+## Config Variables
+```ini
+[OnlineSubsystemPlayFab]
+bEnable=true
+bEnableXpp=true
+bCustomMatchmaker=false
+HeartBeatInterval=60.0
+XmppPort=5222
+XmppHost=192.168.0.100
+```
+
 # XMPP, if you're into that sort of thing
 
 ## Picking your server

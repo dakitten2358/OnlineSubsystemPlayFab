@@ -18,6 +18,8 @@ class FOnlineEventsPlayFab : public IOnlineEvents
 {
 private:
 
+	TMap<TSharedRef<FUniqueNetId>, FGuid> PlayerSessionIds;
+
 	/** Reference to the main PlayFab subsystem */
 	class FOnlineSubsystemPlayFab* PlayFabSubsystem;
 

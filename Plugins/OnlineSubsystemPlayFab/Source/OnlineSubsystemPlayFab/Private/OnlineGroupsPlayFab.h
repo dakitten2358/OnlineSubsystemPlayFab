@@ -10,23 +10,50 @@
 #include "Core/PlayFabClientDataModels.h"
 
 /**
+ * This struct describes metadata about members of a group
+ */
+class IGroupRosterPlayFab : public IGroupRoster
+{
+private:
+	TSharedRef<const FUniqueNetId> GroupId;
+	TArray<FGroupMember*> Members;
+
+public:
+	IGroupRosterPlayFab(TSharedRef<const FUniqueNetId> InGroupId, TArray<FGroupMember*> InMembers);
+
+	virtual ~IGroupRosterPlayFab()
+	{
+
+	}
+
+	virtual const FGroupMember* GetEntry(const FUniqueNetId& EntryId) const override;
+	virtual FGroupMember* GetEntry(const FUniqueNetId& EntryId) override;
+	virtual TSharedRef<const FUniqueNetId> GetCollectionId() const override;
+	virtual void CopyEntries(TArray<FGroupMember>& Out) const override;
+	int32 GetSize() const { return Members.Num(); };
+};
+
+/**
 * This struct describes metadata about a group.
 */
 class IGroupInfoPlayFab : public IGroupInfo
 {
-protected:
+private:
 	TSharedRef<const FUniqueNetId> GroupId;
 	TSharedRef<const FUniqueNetId> OwnerId;
 	FGroupDisplayInfo DisplayInfo;
 	FString Namespace;
 	FDateTime randomTime;
+	TMap<FString, PlayFab::ClientModels::FSharedGroupDataRecord> Data;
+	TSharedPtr<IGroupRosterPlayFab> Roster;
 
 public:
 
-	IGroupInfoPlayFab(TSharedRef<const FUniqueNetId> InGroupId, TSharedRef<const FUniqueNetId> InOwnerId, FGroupDisplayInfo InDisplayInfo);
+	IGroupInfoPlayFab(TSharedRef<const FUniqueNetId> InGroupId, TSharedRef<const FUniqueNetId> InOwnerId, FGroupDisplayInfo InDisplayInfo, TMap<FString, PlayFab::ClientModels::FSharedGroupDataRecord> InData, TSharedRef<IGroupRosterPlayFab> InRoster);
 
 	virtual ~IGroupInfoPlayFab()
 	{
+
 	}
 
 	// IOnlineGroups
@@ -37,6 +64,8 @@ public:
 	virtual uint32 GetSize() const override;
 	virtual const FDateTime& GetCreatedAt() const override;
 	virtual const FDateTime& GetLastUpdated() const override;
+
+	TSharedPtr<IGroupRosterPlayFab> GetRoster() const;
 };
 
 /**
@@ -45,7 +74,7 @@ public:
 class FOnlineGroupsPlayFab : public IOnlineGroups
 {
 private:
-
+	TMap<FString, TSharedPtr<IGroupInfoPlayFab>> GroupsCache;
 	FString Namespace;
 
 	/** Reference to the main PlayFab subsystem */
@@ -115,10 +144,10 @@ public:
 	virtual const FString& GetNamespace() const override;
 
 private:
-	void OnSuccessCallback_Client_CreateSharedGroup(const PlayFab::ClientModels::FCreateSharedGroupResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted* OnCompleted);
-	void OnErrorCallback_Client_CreateSharedGroup(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted* OnCompleted);
-	void OnSuccessCallback_Client_GetSharedGroupData(const PlayFab::ClientModels::FGetSharedGroupDataResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted* OnCompleted);
-	void OnErrorCallback_Client_GetSharedGroupData(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted* OnCompleted);
+	void OnSuccessCallback_Client_CreateSharedGroup(const PlayFab::ClientModels::FCreateSharedGroupResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
+	void OnErrorCallback_Client_CreateSharedGroup(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
+	void OnSuccessCallback_Client_GetSharedGroupData(const PlayFab::ClientModels::FGetSharedGroupDataResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
+	void OnErrorCallback_Client_GetSharedGroupData(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
 };
 
 typedef TSharedPtr<FOnlineGroupsPlayFab, ESPMode::ThreadSafe> FOnlineGroupsPlayFabPtr;

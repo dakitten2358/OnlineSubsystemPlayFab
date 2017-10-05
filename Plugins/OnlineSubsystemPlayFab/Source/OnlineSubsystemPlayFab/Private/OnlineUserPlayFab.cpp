@@ -33,12 +33,13 @@ bool FOnlineUserInfoPlayFab::GetUserAttribute(const FString& AttrName, FString& 
 
 bool FOnlineUserPlayFab::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>& UserIds)
 {
+	// We can accept more then one, we just have to push this to an async task to deal with it most effectively
 	if (UserIds.Num() > 1)
 	{
 		UE_LOG_ONLINE(Error, TEXT("FOnlineUserPlayFab::QueryUserInfo: Can't accept more then 1 UserId at a time due to PlayFab API"));
 		return false;
 	}
-	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+	PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
 	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 	if (ServerAPI.IsValid())
 	{
@@ -59,7 +60,7 @@ bool FOnlineUserPlayFab::QueryUserInfo(int32 LocalUserNum, const TArray<TSharedR
 			PlayFab::ClientModels::FGetAccountInfoRequest Request;
 			Request.PlayFabId = UserId->ToString();
 			SuccessDelegate_Client_GetAccountInfo = PlayFab::UPlayFabClientAPI::FGetAccountInfoDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnSuccessCallback_Client_GetAccountInfo, LocalUserNum, &UserIds);
-			PlayFab::FPlayFabErrorDelegate ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnErrorCallback_GetAccountInfo, LocalUserNum, &UserIds);
+			auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnErrorCallback_GetAccountInfo, LocalUserNum, &UserIds);
 			ClientAPI->GetAccountInfo(Request, SuccessDelegate_Client_GetAccountInfo);
 		}
 		return true;
@@ -94,9 +95,28 @@ TSharedPtr<FOnlineUser> FOnlineUserPlayFab::GetUserInfo(int32 LocalUserNum, cons
 
 bool FOnlineUserPlayFab::QueryUserIdMapping(const FUniqueNetId& UserId, const FString& DisplayNameOrEmail, const FOnQueryUserMappingComplete& Delegate /*= FOnQueryUserMappingComplete()*/)
 {
-	UE_LOG_ONLINE(Warning, TEXT("FOnlineUserPlayFab::QueryUserIdMapping: Not yet implemented"));
-	Delegate.ExecuteIfBound(false, UserId, DisplayNameOrEmail, FUniqueNetIdString(), TEXT("not implemented"));
-	return false;
+	PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI();
+	// Can't just yet, PlayFab doesn't have the method for PlayFabUser/Email on the Server API(probably never will)
+	if (ServerAPI.IsValid() && !ClientAPI->IsClientLoggedIn())
+	{
+		UE_LOG_ONLINE(Error, TEXT("FOnlineUserPlayFab::QueryUserIdMapping: PlayFab ServerAPI can't query from Display Name/Email/etc"));
+		return false;
+	}
+
+	bool bIsEmail = DisplayNameOrEmail.Contains("@", ESearchCase::IgnoreCase);
+
+	PlayFab::ClientModels::FGetAccountInfoRequest Request;
+	if (bIsEmail)
+		Request.Email = DisplayNameOrEmail;
+	else
+		Request.TitleDisplayName = DisplayNameOrEmail;
+
+	TSharedRef<const FUniqueNetId> PlayerId = MakeShareable(new FUniqueNetIdPlayFabId(UserId));
+	auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetAccountInfoDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnSuccessCallback_Client_Query_GetAccountInfo, PlayerId, DisplayNameOrEmail, Delegate);
+	auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineUserPlayFab::OnErrorCallback_Query_GetAccountInfo, PlayerId, DisplayNameOrEmail, Delegate);
+	PlayFabSubsystem->GetClientAPI(UserId)->GetAccountInfo(Request, SuccessDelegate, ErrorDelegate);
+	return true;
 }
 
 bool FOnlineUserPlayFab::QueryExternalIdMappings(const FUniqueNetId& UserId, const FExternalIdQueryOptions& QueryOptions, const TArray<FString>& ExternalIds, const FOnQueryExternalIdMappingsComplete& Delegate /*= FOnQueryExternalIdMappingsComplete()*/)
@@ -141,4 +161,14 @@ void FOnlineUserPlayFab::OnSuccessCallback_Server_GetAccountInfo(const PlayFab::
 void FOnlineUserPlayFab::OnErrorCallback_GetAccountInfo(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds)
 {
 	TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, false, *UserIds, ErrorResult.ErrorMessage);
+}
+
+void FOnlineUserPlayFab::OnSuccessCallback_Client_Query_GetAccountInfo(const PlayFab::ClientModels::FGetAccountInfoResult& Result, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate)
+{
+	Delegate.ExecuteIfBound(true, UserId.Get(), DisplayNameOrEmail, FUniqueNetIdPlayFabId(Result.AccountInfo->PlayFabId), TEXT(""));
+}
+
+void FOnlineUserPlayFab::OnErrorCallback_Query_GetAccountInfo(const PlayFab::FPlayFabError& ErrorResult, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate)
+{
+	Delegate.ExecuteIfBound(false, UserId.Get(), DisplayNameOrEmail, FUniqueNetIdPlayFabId(), ErrorResult.GenerateErrorReport());
 }

@@ -32,7 +32,7 @@ public:
 	// FUserOnlineAccountPlayFab
 
 	FUserOnlineAccountPlayFab(const FString& InUserId = TEXT(""), const FString& InSessionTicket = TEXT(""))
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdPlayFabId(InUserId))
 		, UserId(InUserId)
 		, SessionTicket(InSessionTicket)
 	{ }
@@ -68,7 +68,7 @@ private:
 	TMap<int32, TSharedPtr<const FUniqueNetId>> UserIds;
 
 	/** Ids mapped to locally registered users */
-	TMap<FUniqueNetIdString, TSharedRef<FUserOnlineAccountPlayFab>> UserAccounts;
+	TMap<FUniqueNetIdPlayFabId, TSharedRef<FUserOnlineAccountPlayFab>> UserAccounts;
 
 	/** Reference to the main PlayFab subsystem */
 	class FOnlineSubsystemPlayFab* PlayFabSubsystem;

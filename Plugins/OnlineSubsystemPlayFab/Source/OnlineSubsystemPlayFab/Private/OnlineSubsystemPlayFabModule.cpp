@@ -4,6 +4,7 @@
 #include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "ModuleManager.h"
+#include "PlayFab.h"
 
 IMPLEMENT_MODULE(FOnlineSubsystemPlayFabModule, OnlineSubsystemPlayFab);
 
@@ -42,6 +43,9 @@ public:
 
 void FOnlineSubsystemPlayFabModule::StartupModule()
 {
+	// Hopefully load PlayFab before needed
+	//FModuleManager::LoadModuleChecked<IPlayFabModuleInterface>("PlayFab");
+
 	UE_LOG(LogOnline, Log, TEXT("PlayFab Startup!"));
 	
 	PlayFabFactory = new FOnlineFactoryPlayFab();

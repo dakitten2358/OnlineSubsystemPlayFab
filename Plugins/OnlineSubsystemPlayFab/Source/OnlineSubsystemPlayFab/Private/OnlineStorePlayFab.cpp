@@ -7,15 +7,15 @@
 
 bool FOnlineStorePlayFab::QueryForAvailablePurchases(const TArray<FString>& ProductIDs, FOnlineProductInformationReadRef& InReadObject)
 {
-	PlayFabClientPtr ClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
-	if (ClientAPI.IsValid())
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI();
+	if (ClientAPI->IsClientLoggedIn())
 	{
 		InReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
 
-		PlayFab::ClientModels::FGetStoreItemsRequest Request;
-		PlayFab::UPlayFabClientAPI::FGetStoreItemsDelegate SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetStoreItemsDelegate::CreateRaw(this, &FOnlineStorePlayFab::OnSuccessCallback_Client_GetStoreItems, &InReadObject);
-		PlayFab::FPlayFabErrorDelegate ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineStorePlayFab::OnErrorCallback, &InReadObject);
-		ClientAPI->GetStoreItems(Request, SuccessDelegate, ErrorDelegate);
+		PlayFab::ClientModels::FGetCatalogItemsRequest Request;
+		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetCatalogItemsDelegate::CreateRaw(this, &FOnlineStorePlayFab::OnSuccessCallback_Client_GetCatalogItems, &InReadObject);
+		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineStorePlayFab::OnErrorCallback_Client_GetCatalogItems, &InReadObject);
+		ClientAPI->GetCatalogItems(Request, SuccessDelegate, ErrorDelegate);
 	}
 	else
 	{
@@ -36,17 +36,31 @@ bool FOnlineStorePlayFab::BeginPurchase(const FInAppPurchaseProductRequest& Prod
 
 bool FOnlineStorePlayFab::RestorePurchases(const TArray<FInAppPurchaseProductRequest>& ConsumableProductFlags, FOnlineInAppPurchaseRestoreReadRef& InReadObject)
 {
+	// We'll complete this later, IOS isn't a big concern
+	/*PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI();
+	if (ClientAPI->IsClientLoggedIn())
+	{
+		for (auto ProductRequest : ConsumableProductFlags)
+		{
+			PlayFab::ClientModels::FRestoreIOSPurchasesRequest Request;
+			Request.ReceiptData = ProductRequest.ProductIdentifier;
+			ClientAPI->RestoreIOSPurchases(Request);
+		}
+		InReadObject->ReadState = EOnlineAsyncTaskState::InProgress;
+		return true;
+	}*/
 	return false;
 }
 
-void FOnlineStorePlayFab::OnSuccessCallback_Client_GetStoreItems(const PlayFab::ClientModels::FGetStoreItemsResult& Result, FOnlineProductInformationReadRef* InReadObject)
+void FOnlineStorePlayFab::OnSuccessCallback_Client_GetCatalogItems(const PlayFab::ClientModels::FGetCatalogItemsResult& Result, FOnlineProductInformationReadRef* InReadObject)
 {
 	FOnlineProductInformationReadRef& Obj = *InReadObject;
-	for (PlayFab::ClientModels::FStoreItem StoreItem : Result.Store)
+	for (PlayFab::ClientModels::FCatalogItem CatalogItem : Result.Catalog)
 	{
 		FInAppPurchaseProductInfo NewProductInfo;
-		NewProductInfo.Identifier = StoreItem.ItemId;
-		//NewProductInfo.DisplayName = StoreItem.;
+		NewProductInfo.Identifier = CatalogItem.ItemId;
+		NewProductInfo.DisplayName = CatalogItem.DisplayName;
+		NewProductInfo.DisplayDescription = CatalogItem.Description;
 
 		Obj->ProvidedProductInformation.Add(NewProductInfo);
 	}
@@ -54,7 +68,7 @@ void FOnlineStorePlayFab::OnSuccessCallback_Client_GetStoreItems(const PlayFab::
 	TriggerOnQueryForAvailablePurchasesCompleteDelegates(true);
 }
 
-void FOnlineStorePlayFab::OnErrorCallback(const PlayFab::FPlayFabError& ErrorResult, FOnlineProductInformationReadRef* InReadObject)
+void FOnlineStorePlayFab::OnErrorCallback_Client_GetCatalogItems(const PlayFab::FPlayFabError& ErrorResult, FOnlineProductInformationReadRef* InReadObject)
 {
 	UE_LOG_ONLINE(Warning, TEXT("%s"), *ErrorResult.ErrorMessage);
 	TriggerOnQueryForAvailablePurchasesCompleteDelegates(false);

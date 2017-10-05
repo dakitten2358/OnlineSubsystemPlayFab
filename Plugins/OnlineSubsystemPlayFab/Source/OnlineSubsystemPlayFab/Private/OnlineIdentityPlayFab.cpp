@@ -73,7 +73,6 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 	}
 	else
 	{
-		PlayFabClientPtr PlayFabClientAPI = IPlayFabModuleInterface::Get().GetClientAPI();
 		PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
 		if (ClientAPI.IsValid())
 		{
@@ -85,7 +84,11 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 			InfoRequestParameters->GetUserAccountInfo = true;
 			InfoRequestParameters->GetUserData = true;
 
+#if WITH_DEV_AUTOMATION_TESTS
+			if (AccountCredentials.Type == "playfab" || AccountCredentials.Type == "epic") // OSS tests use "epic", add support for automated testing
+#else
 			if (AccountCredentials.Type == "playfab")
+#endif // WITH_DEV_AUTOMATION_TESTS
 			{
 				PlayFab::ClientModels::FLoginWithPlayFabRequest Request;
 				Request.Username = AccountCredentials.Id;
@@ -96,10 +99,6 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithPlayFab(Request, SuccessDelegate_Login, ErrorDelegate_Login);
-				if (PlayFabClientAPI->IsClientLoggedIn())
-				{
-					PlayFabClientAPI->LoginWithPlayFab(Request);
-				}
 			}
 			else if (AccountCredentials.Type == "email")
 			{
@@ -112,10 +111,6 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithEmailAddress(Request, SuccessDelegate_Login, ErrorDelegate_Login);
-				if (PlayFabClientAPI->IsClientLoggedIn())
-				{
-					PlayFabClientAPI->LoginWithEmailAddress(Request);
-				}
 			}
 			else if (AccountCredentials.Type == "customid")
 			{
@@ -128,10 +123,6 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithCustomID(Request, SuccessDelegate_Login, ErrorDelegate_Login);
-				if (PlayFabClientAPI->IsClientLoggedIn())
-				{
-					PlayFabClientAPI->LoginWithCustomID(Request);
-				}
 			}
 			else if (AccountCredentials.Type == "steam")
 			{
@@ -144,10 +135,6 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 				auto ErrorDelegate_Login = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineIdentityPlayFab::OnErrorCallback_Login, LocalUserNum);
 
 				ClientAPI->LoginWithSteam(Request, SuccessDelegate_Login, ErrorDelegate_Login);
-				if (PlayFabClientAPI->IsClientLoggedIn())
-				{
-					PlayFabClientAPI->LoginWithSteam(Request);
-				}
 			}
 			else
 			{
@@ -164,7 +151,7 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 	if (!ErrorStr.IsEmpty())
 	{
 		UE_LOG_ONLINE(Warning, TEXT("Login request failed. %s"), *ErrorStr);
-		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdString(), ErrorStr);
+		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdPlayFabId(), ErrorStr);
 		return false;
 	}
 	return true;
@@ -184,7 +171,7 @@ bool FOnlineIdentityPlayFab::Logout(int32 LocalUserNum)
 		}
 
 		// remove cached user account
-		UserAccounts.Remove(FUniqueNetIdString(*UserId));
+		UserAccounts.Remove(FUniqueNetIdPlayFabId(*UserId));
 		// remove cached user id
 		UserIds.Remove(LocalUserNum);
 
@@ -252,7 +239,7 @@ TSharedPtr<FUserOnlineAccount> FOnlineIdentityPlayFab::GetUserAccount(const FUni
 {
 	TSharedPtr<FUserOnlineAccount> Result;
 
-	FUniqueNetIdString StringUserId(UserId);
+	FUniqueNetIdPlayFabId StringUserId(UserId);
 	const TSharedRef<FUserOnlineAccountPlayFab>* FoundUserAccount = UserAccounts.Find(StringUserId);
 	if (FoundUserAccount != NULL)
 	{
@@ -266,7 +253,7 @@ TArray<TSharedPtr<FUserOnlineAccount> > FOnlineIdentityPlayFab::GetAllUserAccoun
 {
 	TArray<TSharedPtr<FUserOnlineAccount> > Result;
 
-	for (TMap<FUniqueNetIdString, TSharedRef<FUserOnlineAccountPlayFab>>::TConstIterator It(UserAccounts); It; ++It)
+	for (TMap<FUniqueNetIdPlayFabId, TSharedRef<FUserOnlineAccountPlayFab>>::TConstIterator It(UserAccounts); It; ++It)
 	{
 		Result.Add(It.Value());
 	}
@@ -289,14 +276,14 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityPlayFab::CreateUniquePlayerId(uint
 	if (Bytes != NULL && Size > 0)
 	{
 		FString StrId(Size, (TCHAR*)Bytes);
-		return MakeShareable(new FUniqueNetIdString(StrId));
+		return MakeShareable(new FUniqueNetIdPlayFabId(StrId));
 	}
 	return NULL;
 }
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityPlayFab::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShareable(new FUniqueNetIdString(Str));
+	return MakeShareable(new FUniqueNetIdPlayFabId(Str));
 }
 
 ELoginStatus::Type FOnlineIdentityPlayFab::GetLoginStatus(int32 LocalUserNum) const
@@ -387,7 +374,7 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 		UserAccountPtr->UserAttributes.Add(Elem.Key, Elem.Value.Value);
 	}
 
-	UserAccounts.Add(FUniqueNetIdString(Result.PlayFabId), UserAccountPtr.ToSharedRef());
+	UserAccounts.Add(FUniqueNetIdPlayFabId(Result.PlayFabId), UserAccountPtr.ToSharedRef());
 	UserIds.Add(LocalUserNum, UserAccountPtr->GetUserId());
 
 	UE_LOG_ONLINE(Log, TEXT("FOnlineIdentityPlayFab::Login: Received PlayFabId for LocalUser: %d: %s"), LocalUserNum, *Result.PlayFabId);
@@ -404,10 +391,14 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 		ServerRequest.AppId = PlayFabSubsystem->GetAppId();
 		ServerRequest.ClientResource = "UE4";
 		ServerRequest.Domain = PlayFabSubsystem->GetAppId();
-		ServerRequest.ServerPort = 5222;
-		ServerRequest.ServerAddr = "192.168.175.129";
+		int32 XmppPort = 5222;
+		GConfig->GetInt(TEXT("OnlineSubsystemPlayFab"), TEXT("XmppPort"), XmppPort, GEngineIni);
+		ServerRequest.ServerPort = XmppPort;
+		FString XmppHost;
+		GConfig->GetString(TEXT("OnlineSubsystemPlayFab"), TEXT("XmppHost"), XmppHost, GEngineIni);
+		ServerRequest.ServerAddr = XmppHost;
 		ServerRequest.bUseSSL = false; // This is me avoiding dealing with certificates
-		ServerRequest.bUsePlainTextAuth = true; // For some reason Prosody doesn't seem to like non-plain auth?
+		ServerRequest.bUsePlainTextAuth = true; // Prosody mod_auth_external only accepts sasl plain_auth!
 		ServerRequest.Platform = FPlatformProperties::IniPlatformName();
 		XmppConnection->SetServer(ServerRequest);
 
@@ -424,5 +415,5 @@ void FOnlineIdentityPlayFab::OnErrorCallback_Login(const PlayFab::FPlayFabError&
 
 	UE_LOG_ONLINE(Error, TEXT("FOnlineIdentityPlayFab::Login: Login failed for LocalUser: %d: %s"), LocalUserNum, *ErrorResult.ErrorMessage);
 
-	TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdString(TEXT("")), ErrorResult.ErrorMessage);
+	TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdPlayFabId(TEXT("")), ErrorResult.ErrorMessage);
 }

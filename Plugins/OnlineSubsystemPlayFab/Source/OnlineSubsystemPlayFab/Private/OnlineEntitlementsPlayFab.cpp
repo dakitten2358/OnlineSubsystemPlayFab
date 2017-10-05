@@ -36,7 +36,7 @@ void FOnlineEntitlementsPlayFab::GetAllEntitlements(const FUniqueNetId& UserId, 
 
 	for (TSharedPtr<FOnlineEntitlementPlayFab> Entitlement : CachedEntitlements.FindRef(UserId.AsShared()))
 	{
-		if (Namespace != "" && Namespace != Entitlement->Namespace)
+		if (Namespace != Entitlement->Namespace)
 		{
 			continue;
 		}
@@ -46,7 +46,7 @@ void FOnlineEntitlementsPlayFab::GetAllEntitlements(const FUniqueNetId& UserId, 
 
 bool FOnlineEntitlementsPlayFab::QueryEntitlements(const FUniqueNetId& UserId, const FString& Namespace, const FPagedQuery& Page/* = FPagedQuery()*/)
 {
-	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+	PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
 	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(UserId);
 	if (ServerAPI.IsValid())
 	{
@@ -86,23 +86,24 @@ void FOnlineEntitlementsPlayFab::OnSuccessCallback_Client_GetUserInventory(const
 {
 	SuccessDelegate_Client_GetUserInventory.Unbind();
 
+	// Start with empty array
+	auto& Entitlements = CachedEntitlements.FindOrAdd(UserId->AsShared());
+	Entitlements.Empty();
+
 	for (PlayFab::ClientModels::FItemInstance Item : Result.Inventory)
 	{
-		FString ItemNamespace = Item.CustomData.FindRef("Namespace");
-		if (Namespace != "" && ItemNamespace != Namespace)
-		{
-			continue;
-		}
 		TSharedPtr<FOnlineEntitlementPlayFab> Entitlement = MakeShareable(new FOnlineEntitlementPlayFab());
-		//Entitlement->bIsConsumable
 		Entitlement->Id = Item.ItemInstanceId;
 		Entitlement->ItemId = Item.ItemId;
 		Entitlement->RemainingCount = Item.RemainingUses;
 		Entitlement->Name = Item.DisplayName;
-		Entitlement->Namespace = ItemNamespace;
-		Entitlement->bIsConsumable = false;
+		Entitlement->bIsConsumable = Item.RemainingUses.notNull();
+		Entitlement->Attrs = Item.CustomData;
+		Entitlement->PurchaseDate = Item.PurchaseDate;
+		Entitlement->Expiration = Item.Expiration;
+		Entitlement->Namespace = Item.CatalogVersion; // Catalog Version will be treated as namespace
 
-		CachedEntitlements.FindOrAdd(UserId->AsShared()).Add(Entitlement);
+		Entitlements.Add(Entitlement);
 	}
 
 	TriggerOnQueryEntitlementsCompleteDelegates(true, *UserId, Namespace, TEXT(""));
@@ -110,28 +111,32 @@ void FOnlineEntitlementsPlayFab::OnSuccessCallback_Client_GetUserInventory(const
 
 void FOnlineEntitlementsPlayFab::OnSuccessCallback_Server_GetUserInventory(const PlayFab::ServerModels::FGetUserInventoryResult& Result, const FUniqueNetId* UserId, const FString Namespace)
 {
+	// Start with empty array
+	auto& Entitlements = CachedEntitlements.FindOrAdd(UserId->AsShared());
+	Entitlements.Empty();
+
 	for (PlayFab::ServerModels::FItemInstance Item : Result.Inventory)
 	{
-		FString ItemNamespace = Item.CustomData.FindRef("Namespace");
-		if (Namespace != "" && ItemNamespace != Namespace)
-		{
-			continue;
-		}
 		TSharedPtr<FOnlineEntitlementPlayFab> Entitlement = MakeShareable(new FOnlineEntitlementPlayFab());
-		//Entitlement->bIsConsumable
 		Entitlement->Id = Item.ItemInstanceId;
 		Entitlement->ItemId = Item.ItemId;
 		Entitlement->RemainingCount = Item.RemainingUses;
 		Entitlement->Name = Item.DisplayName;
-		Entitlement->Namespace = ItemNamespace;
-		Entitlement->bIsConsumable = false;
+		Entitlement->bIsConsumable = Item.RemainingUses.notNull();
+		Entitlement->Attrs = Item.CustomData;
+		Entitlement->PurchaseDate = Item.PurchaseDate;
+		Entitlement->Expiration = Item.Expiration;
+		Entitlement->Namespace = Item.CatalogVersion; // Catalog Version will be treated as namespace
 
-		CachedEntitlements.FindOrAdd(UserId->AsShared()).Add(Entitlement);
+		Entitlements.Add(Entitlement);
 	}
+
 	TriggerOnQueryEntitlementsCompleteDelegates(true, *UserId, Namespace, TEXT(""));
 }
 
 void FOnlineEntitlementsPlayFab::OnErrorCallback_GetUserInventory(const PlayFab::FPlayFabError& ErrorResult, const FUniqueNetId* UserId, const FString Namespace)
 {
+	SuccessDelegate_Client_GetUserInventory.Unbind();
+
 	TriggerOnQueryEntitlementsCompleteDelegates(false, *UserId, Namespace, ErrorResult.ErrorMessage);
 }

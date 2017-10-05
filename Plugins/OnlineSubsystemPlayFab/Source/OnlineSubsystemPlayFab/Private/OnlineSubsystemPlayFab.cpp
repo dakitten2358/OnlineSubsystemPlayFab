@@ -2,9 +2,12 @@
 
 #include "OnlineSubsystemPlayFab.h"
 
+#include "HAL/RunnableThread.h"
+#include "OnlineAsyncTaskManagerPlayFab.h"
+
 // Interfaces
 #include "OnlineAchievementsPlayFab.h"
-#include "OnlineChatInterface.h"
+#include "OnlineChatPlayFab.h"
 #include "OnlineEntitlementsPlayFab.h"
 #include "OnlineEventsPlayFab.h"
 #include "OnlineExternalUIPlayFab.h"
@@ -156,6 +159,12 @@ IOnlineVoicePtr FOnlineSubsystemPlayFab::GetVoiceInterface() const
 // ===== End Interfaces =====
 // ==========================
 
+void FOnlineSubsystemPlayFab::QueueAsyncTask(class FOnlineAsyncTask* AsyncTask)
+{
+	check(OnlineAsyncTaskThreadRunnable);
+	OnlineAsyncTaskThreadRunnable->AddToInQueue(AsyncTask);
+}
+
 bool FOnlineSubsystemPlayFab::Tick(float DeltaTime)
 {
 	if (!FOnlineSubsystemImpl::Tick(DeltaTime))
@@ -163,10 +172,47 @@ bool FOnlineSubsystemPlayFab::Tick(float DeltaTime)
 		return false;
 	}
 
+	if (OnlineAsyncTaskThreadRunnable)
+	{
+		OnlineAsyncTaskThreadRunnable->GameTick();
+	}
+
+	if (SessionInterface.IsValid())
+	{
+		SessionInterface->Tick(DeltaTime);
+	}
+
 	return true;
 }
 
-PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI(int32 LocalUserNum /*= 0*/)
+PlayFabServerPtr FOnlineSubsystemPlayFab::GetServerAPI()
+{
+	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+	if (ServerAPI.IsValid())
+	{
+		return ServerAPI;
+	}
+
+	return nullptr;
+}
+
+PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI()
+{
+	// Try to find a logged in client
+	for (auto& Elem : PlayFabClientPtrs)
+	{
+		PlayFabClientPtr ClientAPI = Elem.Value;
+		if (ClientAPI->IsClientLoggedIn())
+		{
+			return ClientAPI;
+		}
+	}
+
+	// Return a valid client no matter what since we assume that all GetClientAPI returns are valid
+	return GetClientAPI(0);
+}
+
+PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI(int32 LocalUserNum)
 {
 	PlayFabClientPtr* ClientAPI = PlayFabClientPtrs.Find(LocalUserNum);
 	PlayFabClientPtr Result;
@@ -188,8 +234,21 @@ PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI(const FUniqueNetId& UserI
 	return GetClientAPI(IdentityInterface->GetPlatformUserIdFromUniqueNetId(UserId));
 }
 
+FOnlineSubsystemPlayFab* FOnlineSubsystemPlayFab::GetPlayFabSubsystem(IOnlineSubsystem* Subsystem)
+{
+	return static_cast<FOnlineSubsystemPlayFab*>(Subsystem);
+}
+
 bool FOnlineSubsystemPlayFab::Init()
 {
+	// Create the online async task thread
+	OnlineAsyncTaskThreadRunnable = new FOnlineAsyncTaskManagerPlayFab(this);
+	check(OnlineAsyncTaskThreadRunnable);
+	OnlineAsyncTaskThread = FRunnableThread::Create(OnlineAsyncTaskThreadRunnable, *FString::Printf(TEXT("OnlineAsyncTaskThreadPlayFab %s"), *InstanceName.ToString()), 128 * 1024, TPri_Normal);
+	check(OnlineAsyncTaskThread);
+	UE_LOG_ONLINE(Verbose, TEXT("Created thread (ID:%d)."), OnlineAsyncTaskThread->GetThreadID());
+
+	// Create the interfaces
 	AchievementsInterface = MakeShareable(new FOnlineAchievementsPlayFab(this));
 	ChatInterface = MakeShareable(new FOnlineChatPlayFab(this));
 	EntitlementsInterface = MakeShareable(new FOnlineEntitlementsPlayFab(this));
@@ -208,8 +267,8 @@ bool FOnlineSubsystemPlayFab::Init()
 
 	FString cmdVal;
 	if (FParse::Value(FCommandLine::Get(), TEXT("title_secret_key"), cmdVal)) {
-		//cmdVal = cmdVal.Replace(TEXT("="), TEXT(""));
-		PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+		UE_LOG_ONLINE(Verbose, TEXT("Secret key provided by command line: %s"), *cmdVal);
+		PlayFabServerPtr ServerAPI = GetServerAPI();
 		if (ServerAPI.IsValid())
 		{
 			ServerAPI->SetDevSecretKey(cmdVal);
@@ -224,6 +283,19 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemPlayFab::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
+
+	if (OnlineAsyncTaskThread)
+	{
+		// Destroy the online async task thread
+		delete OnlineAsyncTaskThread;
+		OnlineAsyncTaskThread = nullptr;
+	}
+
+	if (OnlineAsyncTaskThreadRunnable)
+	{
+		delete OnlineAsyncTaskThreadRunnable;
+		OnlineAsyncTaskThreadRunnable = nullptr;
+	}
 
 	AchievementsInterface = nullptr;
 	ChatInterface = nullptr;
@@ -265,6 +337,13 @@ bool FOnlineSubsystemPlayFab::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDev
 
 FString FOnlineSubsystemPlayFab::GetBuildVersion() const
 {
+	// If game_build_version is provided, return that(PlayFab servers build id)
+	FString cmdVal;
+	if (FParse::Value(FCommandLine::Get(), TEXT("game_build_version"), cmdVal)) {
+		return cmdVal;
+	}
+
+	// Otherwise return the ue4 project version
 	FString ProjectVersion;
 	GConfig->GetString(TEXT("/Script/EngineSettings.GeneralProjectSettings"), TEXT("ProjectVersion"), ProjectVersion, GGameIni);
 	return ProjectVersion;

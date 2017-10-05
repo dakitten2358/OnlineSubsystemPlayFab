@@ -6,6 +6,12 @@
 #include "OnlineSubsystemTypes.h"
 #include "IPAddress.h"
 
+// Define our own FUniqueNetIds, this way if something changes on UE4 or PlayFab, we can make changes here, instead of also having
+// To update all the files using the FUniqueNetIdString. Just better code, plus when you see FUniqueNetIdPlayFabId vs FUniqueNetIdLobbyId
+// you know specifically what you're looking at(though most of the time it's a FUniqueNetId reference, so, you're still screwed there)
+typedef FUniqueNetIdString FUniqueNetIdPlayFabId;
+typedef FUniqueNetIdString FUniqueNetIdLobbyId;
+
 class FOnlineSubsystemPlayFab;
 
 /** Possible session states */
@@ -15,11 +21,11 @@ namespace EPlayFabSession
 	{
 		/** Session is undefined */
 		None,
-		/** Session managed as a lobby on backend */
-		LobbySession,
-		/** Session managed by master server publishing */
+		/** Session managed by PlayFab */
+		AdvertisedSessionPlayFab,
+		/** Session managed by PlayFab master server */
 		AdvertisedSessionHost,
-		/** Session client of a game server session */
+		/** Client copy of a game server session */
 		AdvertisedSessionClient,
 		/** Session managed by LAN beacon */
 		LANSession,
@@ -34,9 +40,9 @@ namespace EPlayFabSession
 		{
 			return TEXT("Session undefined");
 		}
-		case LobbySession:
+		case AdvertisedSessionPlayFab:
 		{
-			return TEXT("Lobby session");
+			return TEXT("Advertised Session PlayFab");
 		}
 		case AdvertisedSessionHost:
 		{
@@ -78,9 +84,7 @@ PACKAGE_SCOPE:
 	/** Constructor */
 	FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType = EPlayFabSession::None);
 
-	FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType, const FUniqueNetIdString& InSessionId);
-
-	FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType, const FUniqueNetIdString& InSessionId, FString InMatchmakeTicket);
+	FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType, const FUniqueNetIdLobbyId& InSessionId, FString InMatchmakeTicket = "");
 
 	/**
 	* Initialize a PlayFab session info with the address of this machine
@@ -99,7 +103,8 @@ PACKAGE_SCOPE:
 	/** The ip & port that the host is listening on (valid for LAN/GameServer) */
 	TSharedPtr<class FInternetAddr> HostAddr;
 	/** Unique Id for this session */
-	FUniqueNetIdString SessionId;
+	FUniqueNetIdLobbyId SessionId;
+	/** Only valid on the client, the ticket to authenticate to the server */
 	FString MatchmakeTicket;
 
 public:
@@ -144,4 +149,3 @@ public:
 		return SessionId;
 	}
 };
-

@@ -12,7 +12,6 @@
 #define PLAYFAB_SUBSYSTEM	FName(TEXT("PLAYFAB"))
 #endif
 
-
 /** Forward declarations of all interface classes */
 typedef TSharedPtr<class FOnlineAchievementsPlayFab, ESPMode::ThreadSafe> FOnlineAchievementsPlayFabPtr;
 typedef TSharedPtr<class FOnlineChatPlayFab, ESPMode::ThreadSafe> FOnlineChatPlayFabPtr;
@@ -65,8 +64,18 @@ public:
 	virtual IOnlineUserPtr GetUserInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const override;
 
-	PlayFabClientPtr GetClientAPI(int32 LocalUserNum = 0);
+	void QueueAsyncTask(class FOnlineAsyncTask* AsyncTask);
+
+	virtual bool Tick(float DeltaTime) override;
+
+	// Performs checks to make sure the PlayFab Server API is valid and setup, otherwise returns nullptr
+	PlayFabServerPtr GetServerAPI();
+
+	PlayFabClientPtr GetClientAPI();
+	PlayFabClientPtr GetClientAPI(int32 LocalUserNum);
 	PlayFabClientPtr GetClientAPI(const FUniqueNetId& UserId);
+
+	static FOnlineSubsystemPlayFab* GetPlayFabSubsystem(IOnlineSubsystem* Subsystem);
 
     virtual bool Init() override;
     virtual bool Shutdown() override;
@@ -74,11 +83,11 @@ public:
 	virtual FText GetOnlineServiceName() const override;
     virtual bool Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
+	/*
+	 * Returns either game_build_version from command line or the ue4 project version from project settings
+	 * Used as the PlayFab build Id for the ServerAPI
+	 */
 	inline FString GetBuildVersion() const;
-
-    // FTickerObjectBase
-
-    virtual bool Tick(float DeltaTime) override;
 
     // FOnlineSubsystemPlayFab
 	
@@ -173,6 +182,11 @@ private:
 	FOnlineTimePlayFabPtr TimeInterface;
 	/** Interface to the online user services */
 	FOnlineUserPlayFabPtr UserInterface;
+
+	/** Online async task runnable */
+	class FOnlineAsyncTaskManagerPlayFab* OnlineAsyncTaskThreadRunnable;
+	/** Online async task thread */
+	class FRunnableThread* OnlineAsyncTaskThread;
 
 	TMap<int32, PlayFabClientPtr> PlayFabClientPtrs;
 };

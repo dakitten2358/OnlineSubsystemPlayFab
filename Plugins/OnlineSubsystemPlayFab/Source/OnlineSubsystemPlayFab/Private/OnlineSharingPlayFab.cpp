@@ -13,12 +13,12 @@ void FOnlineSharingPlayFab::RequestCurrentPermissions(int32 LocalUserNum, FOnReq
 
 void FOnlineSharingPlayFab::GetCurrentPermissions(int32 LocalUserNum, TArray<FSharingPermission>& OutPermissions)
 {
-
+	
 }
 
 bool FOnlineSharingPlayFab::RequestNewReadPermissions(int32 LocalUserNum, EOnlineSharingCategory NewPermissions)
 {
-	TriggerOnReadNewsFeedCompleteDelegates(LocalUserNum, false);
+	TriggerOnRequestNewReadPermissionsCompleteDelegates(LocalUserNum, false);
 	return false;
 }
 
@@ -98,6 +98,6 @@ void FOnlineSharingPlayFab::OnSuccessCallback_Client_GetTitleNews(const PlayFab:
 void FOnlineSharingPlayFab::OnErrorCallback_GetTitleNews(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum)
 {
 	SuccessDelegate_Client_GetTitleNews.Unbind();
-
+	UE_LOG_ONLINE(Error, TEXT("Failed ReadNewsFeed: %s"), *ErrorResult.GenerateErrorReport())
 	TriggerOnReadNewsFeedCompleteDelegates(LocalUserNum, false);
 }

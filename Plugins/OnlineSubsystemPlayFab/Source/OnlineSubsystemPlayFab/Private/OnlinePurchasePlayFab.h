@@ -6,6 +6,8 @@
 #include "OnlinePurchaseInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
+#include "Core/PlayFabClientAPI.h"
+#include "Core/PlayFabClientDataModels.h"
 
 /**
 * Interface for IAP (In App Purchases) services
@@ -43,6 +45,10 @@ public:
 	virtual void RedeemCode(const FUniqueNetId& UserId, const FRedeemCodeRequest& RedeemCodeRequest, const FOnPurchaseRedeemCodeComplete& Delegate) override;
 	virtual void QueryReceipts(const FUniqueNetId& UserId, bool bRestoreReceipts, const FOnQueryReceiptsComplete& Delegate) override;
 	virtual void GetReceipts(const FUniqueNetId& UserId, TArray<FPurchaseReceipt>& OutReceipts) const override;
+
+private:
+	void OnSuccessCallback_Client_RedeemCoupon(const PlayFab::ClientModels::FRedeemCouponResult& Result, const FOnPurchaseRedeemCodeComplete Delegate);
+	void OnErrorCallback_RedeemCoupon(const PlayFab::FPlayFabError& ErrorResult, const FOnPurchaseRedeemCodeComplete Delegate);
 };
 
 typedef TSharedPtr<FOnlinePurchasePlayFab, ESPMode::ThreadSafe> FOnlinePurchasePlayFabPtr;

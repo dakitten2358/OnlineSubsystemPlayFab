@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "OnlineFriendsInterface.h"
 #include "OnlinePresenceInterface.h"
+#include "OnlineAsyncTaskManagerPlayFab.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabServerAPI.h"
@@ -35,7 +36,7 @@ public:
 	* Init/default constructor
 	*/
 	FOnlineFriendPlayFab(const FString& InUserId = TEXT(""))
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdPlayFabId(InUserId))
 		, UserId(InUserId)
 	{}
 	//FOnlineFriendSteam(const CSteamID& InUserId = CSteamID());
@@ -104,9 +105,9 @@ public:
 	virtual void DumpBlockedPlayers() const override;
 
 private:
-	void OnSuccessCallback_Server_GetFriendsList(const PlayFab::ServerModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString* ListName, const FOnReadFriendsListComplete* Delegate);
-	void OnSuccessCallback_Client_GetFriendsList(const PlayFab::ClientModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString* ListName, const FOnReadFriendsListComplete* Delegate);
-	void OnErrorCallback_GetFriendsList(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const FString* ListName, const FOnReadFriendsListComplete* Delegate);
+	void OnSuccessCallback_Server_GetFriendsList(const PlayFab::ServerModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate);
+	void OnSuccessCallback_Client_GetFriendsList(const PlayFab::ClientModels::FGetFriendsListResult& Result, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate);
+	void OnErrorCallback_GetFriendsList(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate);
 };
 
 typedef TSharedPtr<FOnlineFriendsPlayFab, ESPMode::ThreadSafe> FOnlineFriendsPlayFabPtr;

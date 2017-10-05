@@ -8,6 +8,8 @@
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
 #include "Core/PlayFabClientDataModels.h"
+#include "Core/PlayFabServerAPI.h"
+#include "Core/PlayFabServerDataModels.h"
 
 /**
 * Interface definition for the online services leaderboard services
@@ -15,6 +17,12 @@
 class FOnlineLeaderboardsPlayFab : public IOnlineLeaderboards
 {
 private:
+	struct FLeaderboardStatistics
+	{
+		TMap<FString, PlayFab::ServerModels::FStatisticValue> Values;
+	};
+
+	TMap<TSharedRef<const FUniqueNetId>, FLeaderboardStatistics> CachedStatistics;
 
 	/** Reference to the main PlayFab subsystem */
 	class FOnlineSubsystemPlayFab* PlayFabSubsystem;
@@ -49,10 +57,16 @@ public:
 	virtual bool WriteOnlinePlayerRatings(const FName& SessionName, int32 LeaderboardId, const TArray<FOnlinePlayerScore>& PlayerScores) override;
 
 private:
-	void OnSuccessCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::ClientModels::FGetLeaderboardAroundPlayerResult& Result, FOnlineLeaderboardReadRef* ReadObject);
-	void OnErrorCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef* ReadObject);
-	void OnSuccessCallback_Client_GetFriendLeaderboard(const PlayFab::ClientModels::FGetLeaderboardResult& Result, FOnlineLeaderboardReadRef* ReadObject);
-	void OnErrorCallback_Client_GetFriendLeaderboard(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef* ReadObject);
+	void OnSuccessCallback_Server_GetPlayerStatistics(const PlayFab::ServerModels::FGetPlayerStatisticsResult& Result, TSharedRef<const FUniqueNetId> PlayerId, FOnlineLeaderboardReadRef ReadObject);
+	void OnErrorCallback_GetPlayerStatistics(const PlayFab::FPlayFabError& ErrorResult, TSharedRef<const FUniqueNetId> PlayerId, FOnlineLeaderboardReadRef ReadObject);
+
+	void OnSuccessCallback_Server_UpdatePlayerStatistics(const PlayFab::ServerModels::FUpdatePlayerStatisticsResult& Result, FName SessionName);
+	void OnErrorCallback_UpdatePlayerStatistics(const PlayFab::FPlayFabError& ErrorResult, FName SessionName);
+
+	void OnSuccessCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::ClientModels::FGetLeaderboardAroundPlayerResult& Result, FOnlineLeaderboardReadRef ReadObject);
+	void OnErrorCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef ReadObject);
+	void OnSuccessCallback_Client_GetFriendLeaderboard(const PlayFab::ClientModels::FGetLeaderboardResult& Result, FOnlineLeaderboardReadRef ReadObject);
+	void OnErrorCallback_Client_GetFriendLeaderboard(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef ReadObject);
 };
 
 typedef TSharedPtr<FOnlineLeaderboardsPlayFab, ESPMode::ThreadSafe> FOnlineLeaderboardsPlayFabPtr;

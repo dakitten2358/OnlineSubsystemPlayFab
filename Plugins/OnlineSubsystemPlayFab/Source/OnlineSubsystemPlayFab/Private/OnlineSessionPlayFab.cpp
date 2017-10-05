@@ -2,18 +2,24 @@
 
 #include "OnlineSessionPlayFab.h"
 #include "OnlineIdentityInterface.h"
+#include "OnlineSubsystem.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "OnlineSubsystemUtils.h"
 #include "OnlineSubsystemSessionSettings.h"
+#include "OnlineSubsystemPlayFabSettings.h"
 #include "SocketSubsystem.h"
 #include "NboSerializerPlayFab.h"
 #include "LANBeacon.h"
 #include "Json.h"
-#include "Core/PlayFabServerAPI.h"
-#include "Core/PlayFabClientAPI.h"
-#include "Core/PlayFabServerDataModels.h"
-#include "Core/PlayFabClientDataModels.h"
+
+// PlayFab
 #include "PlayFab.h"
+#include "Core/PlayFabClientAPI.h"
+#include "Core/PlayFabClientDataModels.h"
+#include "Core/PlayFabServerAPI.h"
+#include "Core/PlayFabServerDataModels.h"
+#include "Core/PlayFabMatchmakerAPI.h"
+#include "Core/PlayFabMatchmakerDataModels.h"
 
 
 FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType)
@@ -23,15 +29,7 @@ FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSes
 {
 }
 
-FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType, const FUniqueNetIdString& InSessionId)
-	: HostAddr(NULL)
-	, SessionId(InSessionId)
-	, SessionType(InSessionType)
-{
-
-}
-
-FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType, const FUniqueNetIdString& InSessionId, FString InMatchmakeTicket)
+FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType, const FUniqueNetIdLobbyId& InSessionId, FString InMatchmakeTicket /* = "" */)
 	: HostAddr(NULL)
 	, SessionId(InSessionId)
 	, SessionType(InSessionType)
@@ -42,7 +40,29 @@ FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSes
 
 void FOnlineSessionInfoPlayFab::Init(const FOnlineSubsystemPlayFab& Subsystem)
 {
+	HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 
+	bool bIsValid = false;
+	FString cmdVal;
+	if (FParse::Value(FCommandLine::Get(), TEXT("server_host_domain"), cmdVal))
+	{
+		HostAddr->SetIp(*cmdVal, bIsValid);
+	}
+	if (!bIsValid)
+	{
+		bool bCanBindAll = false;
+		TSharedRef<FInternetAddr> LocalAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalHostAddr(*GLog, bCanBindAll);
+
+		uint32 HostIp = 0;
+		LocalAddr->GetIp(HostIp); // will return in host order
+								  // if this address is on loopback interface, advertise it as 127.0.0.1
+		if ((HostIp & 0xff000000) == 0x7f000000)
+		{
+			HostAddr->SetIp(0x7f000001);	// 127.0.0.1
+		}
+	}
+
+	HostAddr->SetPort(FURL::UrlConfig.DefaultPort);
 }
 
 void FOnlineSessionInfoPlayFab::InitLAN(const FOnlineSubsystemPlayFab& Subsystem)
@@ -66,16 +86,11 @@ void FOnlineSessionInfoPlayFab::InitLAN(const FOnlineSubsystemPlayFab& Subsystem
 	// Now set the port that was configured
 	HostAddr->SetPort(GetPortFromNetDriver(Subsystem.GetInstanceName()));
 
-	FGuid OwnerGuid;
-	FPlatformMisc::CreateGuid(OwnerGuid);
-	SessionId = FUniqueNetIdString(OwnerGuid.ToString());
+	SessionId = FUniqueNetIdLobbyId(FGuid::NewGuid().ToString());
 }
 
 void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayFab::ClientModels::FCurrentGamesResult& Result)
 {
-	SuccessDelegate_Client_GetCurrentGames.Unbind();
-	ErrorDelegate_Client.Unbind();
-
 	FOnlineSessionSettings NewServer;
 	if (CurrentSessionSearch.IsValid())
 	{
@@ -90,18 +105,17 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayF
 			//GameInfo.Tags
 			/** Owner of the session */
 			// Right now we're only doing dedi servers, so... no owner(for now)
-			//NewSession->OwningUserId = MakeShareable(new FUniqueNetIdString(""));
+			//NewSession->OwningUserId = MakeShareable(new FUniqueNetIdPlayFabId(""));
 			//NewSession->OwningUserName =
 			/** Available Slots */
 			NewSession->NumOpenPrivateConnections = 0;
 			NewSession->NumOpenPublicConnections = GameInfo.MaxPlayers - GameInfo.PlayerUserIds.Num();
 
-			FOnlineSessionInfoPlayFab* PlayFabSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::LobbySession, FUniqueNetIdString(GameInfo.LobbyID));
+			FOnlineSessionInfoPlayFab* PlayFabSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionClient, FUniqueNetIdLobbyId(GameInfo.LobbyID));
 			PlayFabSessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 			bool bIsValid;
 			PlayFabSessionInfo->HostAddr->SetIp(*GameInfo.ServerHostname, bIsValid);
 			PlayFabSessionInfo->HostAddr->SetPort((!GameInfo.ServerPort.isNull() && GameInfo.ServerPort.mValue !=0) ? GameInfo.ServerPort.mValue : 7777);
-			//Packet >> *PlayFabSessionInfo;
 			NewSession->SessionInfo = MakeShareable(PlayFabSessionInfo);
 
 			FOnlineSessionSettings& SessionSettings = NewSession->SessionSettings;
@@ -109,50 +123,52 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayF
 			// Clear out any old settings
 			SessionSettings.Settings.Empty();
 
-			TMap<FString, FString> Tags = GameInfo.Tags;
+			TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(GameInfo.GameServerData);
+			TSharedPtr<FJsonObject> JsonObj;
+			if (FJsonSerializer::Deserialize(Reader, JsonObj))
+			{
+				// Read all the data
+				SessionSettings.bAllowInvites = JsonObj->GetBoolField("bAllowInvites");
+				SessionSettings.bAllowJoinInProgress = JsonObj->GetBoolField("bAllowJoinInProgress");
+				SessionSettings.bAllowJoinViaPresence = JsonObj->GetBoolField("bAllowJoinViaPresence");
+				SessionSettings.bAllowJoinViaPresenceFriendsOnly = JsonObj->GetBoolField("bAllowJoinViaPresenceFriendsOnly");
+				SessionSettings.bAntiCheatProtected = JsonObj->GetBoolField("bAntiCheatProtected");
+				SessionSettings.bIsDedicated = JsonObj->GetBoolField("bIsDedicated");
+				SessionSettings.bIsLANMatch = false;
+				SessionSettings.bShouldAdvertise = JsonObj->GetBoolField("bShouldAdvertise");
+				SessionSettings.bUsesPresence = JsonObj->GetBoolField("bUsesPresence");
+				SessionSettings.bUsesStats = JsonObj->GetBoolField("bUsesStats");
+				SessionSettings.NumPrivateConnections = 0;
+				SessionSettings.NumPublicConnections = GameInfo.MaxPlayers - GameInfo.PlayerUserIds.Num();
 
-			// Read all the data
-			SessionSettings.bAllowInvites = Tags["bAllowInvites"].ToBool();
-			Tags.Remove("bAllowInvites");
-			SessionSettings.bAllowJoinInProgress = Tags["bAllowJoinInProgress"].ToBool();
-			Tags.Remove("bAllowJoinInProgress");
-			SessionSettings.bAllowJoinViaPresence = Tags["bAllowJoinViaPresence"].ToBool();
-			Tags.Remove("bAllowJoinViaPresence");
-			SessionSettings.bAllowJoinViaPresenceFriendsOnly = Tags["bAllowJoinViaPresenceFriendsOnly"].ToBool();
-			Tags.Remove("bAllowJoinViaPresenceFriendsOnly");
-			SessionSettings.bAntiCheatProtected = Tags["bAntiCheatProtected"].ToBool();
-			Tags.Remove("bAntiCheatProtected");
-			SessionSettings.bIsDedicated = true;
-			SessionSettings.bIsLANMatch = false;
-			SessionSettings.bShouldAdvertise = Tags["bShouldAdvertise"].ToBool();
-			Tags.Remove("bShouldAdvertise");
-			SessionSettings.bUsesPresence = Tags["bUsesPresence"].ToBool();
-			Tags.Remove("bUsesPresence");
-			SessionSettings.bUsesStats = Tags["bUsesStats"].ToBool();
-			Tags.Remove("bUsesStats");
-			SessionSettings.NumPrivateConnections = FCString::Atoi(*Tags["NumPrivateConnections"]);
-			Tags.Remove("NumPrivateConnections");
-			SessionSettings.NumPublicConnections = FCString::Atoi(*Tags["NumPublicConnections"]);
-			Tags.Remove("NumPublicConnections");
+				// BuildId
+				SessionSettings.BuildUniqueId = JsonObj->GetNumberField("BuildUniqueId");
 
-			// BuildId
-			SessionSettings.BuildUniqueId = FCString::Atoi(*GameInfo.Tags["BuildUniqueId"]);
-			Tags.Remove("BuildUniqueId");
+				TArray<TSharedPtr<FJsonValue>> Settings = JsonObj->GetArrayField("Settings");
+				for (TSharedPtr<FJsonValue> SettingVal : Settings)
+				{
+					TSharedPtr<FJsonObject> Setting = SettingVal->AsObject();
+					SessionSettings.Settings.FindOrAdd(FName(*Setting->GetStringField("Key"))).Data.FromJson(Setting->GetObjectField("Value").ToSharedRef());
+				}
+			}
 
-			for (auto Setting : Tags)
+			/*for (auto Setting : Tags)
 			{
 				FVariantData Data;
 				if (Data.FromString(Setting.Value))
 				{
 					SessionSettings.Settings.FindOrAdd(FName(*Setting.Key)).Data = Data;
 				}
-			}
+			}*/
+
 		}
+
+		CurrentSessionSearch->SortSearchResults();
 		TriggerOnFindSessionsCompleteDelegates(true);
 	}
 	else
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Failed to create new online game settings object"));
+		UE_LOG_ONLINE(Warning, TEXT("Couldn't find CurrentSessionSearch"));
 	}
 
 	TriggerOnFindSessionsCompleteDelegates(false);
@@ -174,7 +190,7 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake(const PlayFab::Cl
 	FOnlineSessionSearchResult NewResult;
 	FOnlineSession NewSession;
 
-	FOnlineSessionInfoPlayFab* PlayFabSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::LobbySession, FUniqueNetIdString(Result.LobbyID), Result.Ticket);
+	FOnlineSessionInfoPlayFab* PlayFabSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionClient, FUniqueNetIdLobbyId(Result.LobbyID), Result.Ticket);
 	PlayFabSessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 	bool bIsValid;
 	PlayFabSessionInfo->HostAddr->SetIp(*Result.ServerHostname, bIsValid);
@@ -185,40 +201,41 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake(const PlayFab::Cl
 
 	CurrentMatchmakeSearch->SearchState = EOnlineAsyncTaskState::Done;
 	CurrentMatchmakeSearch->SearchResults.Add(NewResult);
+	CurrentMatchmakeSearch = nullptr; // null out our pointer so we can start new matchmaking/find sessions
 	TriggerOnMatchmakingCompleteDelegates(SessionName, true);
 }
 
-void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult)
+void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName)
 {
-	SuccessDelegate_Client_GetCurrentGames.Unbind();
-	ErrorDelegate_Client.Unbind();
+	OnErrorCallback_Client(ErrorResult, FunctionName, NAME_None);
+}
 
-	TriggerOnFindSessionsCompleteDelegates(false);
+void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName)
+{
+	UE_LOG_ONLINE(Error, TEXT("PlayFabClient: Function \"%s\" error: %s"), *FunctionName.ToString(), *ErrorResult.ErrorMessage);
+
+	if (FunctionName == "GetCurrentGames")
+	{
+		TriggerOnFindSessionsCompleteDelegates(false);
+	}
+	if (FunctionName == "Matchmake")
+	{
+		CurrentMatchmakeSearch = nullptr;
+		TriggerOnMatchmakingCompleteDelegates(SessionName, false);
+	}
 }
 
 void FOnlineSessionPlayFab::OnSuccessCallback_Server_RegisterGame(const PlayFab::ServerModels::FRegisterGameResponse& Result, FName SessionName)
 {
-	SuccessDelegate_Server_RegisterGame.Unbind();
-	ErrorDelegate_Server.Unbind();
-
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
 	{
 		// Setup the host session info
 		UE_LOG_ONLINE(Log, TEXT("Received new LobbyId: %s"), *Result.LobbyId);
-		FOnlineSessionInfoPlayFab* NewSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionHost, FUniqueNetIdString(*Result.LobbyId));
+		FOnlineSessionInfoPlayFab* NewSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionHost, FUniqueNetIdLobbyId(*Result.LobbyId));
 		NewSessionInfo->Init(*PlayFabSubsystem);
-
-		FString cmdVal;
-		if (FParse::Value(FCommandLine::Get(), TEXT("server_host_domain"), cmdVal)) {
-			bool bIsValid;
-			NewSessionInfo->HostAddr->SetIp(*cmdVal, bIsValid);
-		}
-		if (FParse::Value(FCommandLine::Get(), TEXT("server_host_port"), cmdVal)) {
-			NewSessionInfo->HostAddr->SetPort(FCString::Atoi(*cmdVal));
-		}
-
 		Session->SessionInfo = MakeShareable(NewSessionInfo);
+
 		Session->SessionState = EOnlineSessionState::Pending;
 		RegisterLocalPlayers(Session);
 
@@ -226,30 +243,91 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Server_RegisterGame(const PlayFab:
 		UWorld* World = GetWorldForOnline(PlayFabSubsystem->GetInstanceName());
 		if (World != nullptr)
 		{
-			World->GetTimerManager().SetTimer(TimerHandle_PlayFabHeartbeat, TimerDelegate_PlayFabHeartbeat, 60.f, true);
+			float HeartBeatInterval = 60;
+			if (!GConfig->GetFloat(TEXT("OnlineSubsystemPlayFab"), TEXT("HeartBeatInterval"), HeartBeatInterval, GEngineIni))
+			{
+				HeartBeatInterval = 60.f;
+			}
+			World->GetTimerManager().SetTimer(TimerHandle_PlayFabHeartbeat, TimerDelegate_PlayFabHeartbeat, HeartBeatInterval, true);
 		}
+
+		TriggerOnCreateSessionCompleteDelegates(SessionName, true);
+
+		// Update the server data
+		UpdateSession(SessionName, Session->SessionSettings, true);
+	}
+	else
+	{
+		TriggerOnCreateSessionCompleteDelegates(SessionName, false);
 	}
 }
 
 void FOnlineSessionPlayFab::OnSuccessCallback_Server_DeregisterGame(const PlayFab::ServerModels::FDeregisterGameResponse& Result, FName SessionName)
 {
-	SuccessDelegate_Server_DeregisterGame.Unbind();
-	ErrorDelegate_Server.Unbind();
-
 	RemoveNamedSession(SessionName);
 	TriggerOnDestroySessionCompleteDelegates(SessionName, true);
 }
 
-void FOnlineSessionPlayFab::OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName SessionName)
+void FOnlineSessionPlayFab::OnSuccessCallback_Server_InstanceState(const PlayFab::ServerModels::FSetGameServerInstanceStateResult& Result, FName SessionName)
 {
-	UE_LOG_ONLINE(Error, TEXT("%s"), *ErrorResult.ErrorMessage);
-	if (SuccessDelegate_Server_RegisterGame.IsBound())
+	if (GetNamedSession(SessionName)->SessionState == EOnlineSessionState::InProgress)
+		TriggerOnStartSessionCompleteDelegates(SessionName, true);
+	if (GetNamedSession(SessionName)->SessionState == EOnlineSessionState::Ending)
+		TriggerOnEndSessionCompleteDelegates(SessionName, true);
+}
+
+void FOnlineSessionPlayFab::OnSuccessCallback_Server_InstanceData(const PlayFab::ServerModels::FSetGameServerInstanceDataResult& Result, FName SessionName)
+{
+	TriggerOnUpdateSessionCompleteDelegates(SessionName, true);
+}
+
+void FOnlineSessionPlayFab::OnSuccessCallback_Server_AuthenticateSessionTicket(const PlayFab::ServerModels::FAuthenticateSessionTicketResult& Result, FName SessionName)
+{
+	TriggerOnAuthenticatePlayerCompleteDelegates(FUniqueNetIdPlayFabId(Result.UserInfo->PlayFabId), true);
+}
+
+void FOnlineSessionPlayFab::OnSuccessCallback_Server_RedeemMatchmakerTicket(const PlayFab::ServerModels::FRedeemMatchmakerTicketResult& Result, FName SessionName)
+{
+	TriggerOnAuthenticatePlayerCompleteDelegates(FUniqueNetIdPlayFabId(Result.UserInfo->PlayFabId), Result.TicketIsValid);
+}
+
+void FOnlineSessionPlayFab::OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName)
+{
+	OnErrorCallback_Server(ErrorResult, FunctionName, SessionName, MakeShareable(new FUniqueNetIdPlayFabId()));
+}
+
+void FOnlineSessionPlayFab::OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName, TSharedRef<FUniqueNetId> PlayerId)
+{
+	UE_LOG_ONLINE(Error, TEXT("PlayFabServer: Function \"%s\" error: %s"), *FunctionName.ToString(), *ErrorResult.ErrorMessage);
+
+	if (FunctionName == "RegisterGame")
 	{
 		RemoveNamedSession(SessionName);
+		TriggerOnCreateSessionCompleteDelegates(SessionName, false);
 	}
-
-	SuccessDelegate_Server_RegisterGame.Unbind();
-	ErrorDelegate_Server.Unbind();
+	else if (FunctionName == "DeregisterGame")
+	{
+		TriggerOnDestroySessionCompleteDelegates(SessionName, false);
+	}
+	else if (FunctionName == "SetGameServerInstanceState")
+	{
+		if (GetNamedSession(SessionName)->SessionState == EOnlineSessionState::InProgress)
+			TriggerOnStartSessionCompleteDelegates(SessionName, false);
+		if (GetNamedSession(SessionName)->SessionState == EOnlineSessionState::Ending)
+			TriggerOnEndSessionCompleteDelegates(SessionName, false);
+	}
+	else if (FunctionName == "SetGameServerInstanceData")
+	{
+		TriggerOnUpdateSessionCompleteDelegates(SessionName, false);
+	}
+	else if (FunctionName == "AuthenticateSessionTicket")
+	{
+		TriggerOnAuthenticatePlayerCompleteDelegates(PlayerId.Get(), false);
+	}
+	else if (FunctionName == "RedeemMatchmakerTicket")
+	{
+		TriggerOnAuthenticatePlayerCompleteDelegates(PlayerId.Get(), false);
+	}
 }
 
 void FOnlineSessionPlayFab::PlayFab_Server_Heartbeat(FName SessionName)
@@ -259,16 +337,151 @@ void FOnlineSessionPlayFab::PlayFab_Server_Heartbeat(FName SessionName)
 	{
 		FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
 
-		PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+		PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
 		if (ServerAPI.IsValid())
 		{
 			PlayFab::ServerModels::FRefreshGameServerInstanceHeartbeatRequest Request;
 			Request.LobbyId = SessionInfo->SessionId.ToString();
 
-			ErrorDelegate_Server = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, SessionName);
-			ServerAPI->RefreshGameServerInstanceHeartbeat(Request, PlayFab::UPlayFabServerAPI::FRefreshGameServerInstanceHeartbeatDelegate(), ErrorDelegate_Server);
+			// Only specify an errordelegate, it's a passive function so if should never failed unless our game went invalid
+			auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("RefreshGameServerInstanceHeartbeat"), SessionName);
+			ServerAPI->RefreshGameServerInstanceHeartbeat(Request, nullptr, ErrorDelegate);
 		}
 	}
+}
+
+void FOnlineSessionPlayFab::PlayerJoined(const FUniqueNetId& PlayerId, FName SessionName)
+{
+	FNamedOnlineSession* Session = GetNamedSession(SessionName);
+	if (Session)
+	{
+		FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
+
+		bool bUsesCustomMatchmaker = false;
+		GConfig->GetBool(TEXT("OnlineSubsystemPlayFab"), TEXT("bCustomMatchmaker"), bUsesCustomMatchmaker, GEngineIni);
+
+		if (bUsesCustomMatchmaker)
+		{
+			PlayFabMatchmakerPtr MatchmakerAPI = IPlayFabModuleInterface::Get().GetMatchmakerAPI();
+			if (MatchmakerAPI.IsValid())
+			{
+				PlayFab::MatchmakerModels::FPlayerJoinedRequest Request;
+				Request.LobbyId = SessionInfo->SessionId.ToString();
+				Request.PlayFabId = PlayerId.ToString();
+
+				MatchmakerAPI->PlayerJoined(Request);
+			}
+		}
+		else
+		{
+			// PlayerJoined event is called when authenticated when not using a custom matchmaker
+		}
+	}
+}
+
+void FOnlineSessionPlayFab::PlayerLeft(const FUniqueNetId& PlayerId, FName SessionName)
+{
+	FNamedOnlineSession* Session = GetNamedSession(SessionName);
+	if (Session)
+	{
+		FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
+
+		bool bUsesCustomMatchmaker = false;
+		GConfig->GetBool(TEXT("OnlineSubsystemPlayFab"), TEXT("bCustomMatchmaker"), bUsesCustomMatchmaker, GEngineIni);
+
+		if (bUsesCustomMatchmaker)
+		{
+			PlayFabMatchmakerPtr MatchmakerAPI = IPlayFabModuleInterface::Get().GetMatchmakerAPI();
+			if (MatchmakerAPI.IsValid())
+			{
+				PlayFab::MatchmakerModels::FPlayerLeftRequest Request;
+				Request.LobbyId = SessionInfo->SessionId.ToString();
+				Request.PlayFabId = PlayerId.ToString();
+
+				MatchmakerAPI->PlayerLeft(Request);
+			}
+		}
+		else
+		{
+			PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+			if (ServerAPI.IsValid())
+			{
+				PlayFab::ServerModels::FNotifyMatchmakerPlayerLeftRequest Request;
+				Request.LobbyId = SessionInfo->SessionId.ToString();
+				Request.PlayFabId = PlayerId.ToString();
+
+				ServerAPI->NotifyMatchmakerPlayerLeft(Request);
+			}
+		}
+	}
+}
+
+FOnlineSessionPlayFab* FOnlineSessionPlayFab::GetOnlineSessionPlayFab(IOnlineSubsystem* Subsystem)
+{
+	IOnlineSessionPtr SessionInt = Subsystem->GetSessionInterface();
+	if (SessionInt.IsValid())
+	{
+		FOnlineSessionPlayFab* PlayFabSessionInt = static_cast<FOnlineSessionPlayFab*>(SessionInt.Get());
+		if (PlayFabSessionInt)
+		{
+			return PlayFabSessionInt;
+		}
+	}
+	return nullptr;
+}
+
+bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString SessionTicket, bool bIsMatchmakeTicket)
+{
+	uint32 Result = E_FAIL;
+
+	FNamedOnlineSession* Session = GetNamedSession(SessionName);
+	if (Session)
+	{
+		FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
+
+		bool bUsesCustomMatchmaker = false;
+		GConfig->GetBool(TEXT("OnlineSubsystemPlayFab"), TEXT("CustomMatchmaker"), bUsesCustomMatchmaker, GEngineIni);
+
+		if (bUsesCustomMatchmaker)
+		{
+			// Right now, matchmaker API doesn't actually do shit without a direct connection...
+			Result = ERROR_SUCCESS;
+		}
+		else
+		{
+			PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+			if (ServerAPI.IsValid())
+			{
+				TSharedRef<FUniqueNetId> PlayerIdRef = MakeShareable(new FUniqueNetIdPlayFabId(PlayerId));
+
+				if (bIsMatchmakeTicket)
+				{
+					PlayFab::ServerModels::FRedeemMatchmakerTicketRequest Request;
+					Request.LobbyId = SessionInfo->SessionId.ToString();
+					Request.Ticket = SessionTicket;
+
+					auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FRedeemMatchmakerTicketDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_RedeemMatchmakerTicket, FName(*Session->SessionName.ToString()));
+					auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("RedeemMatchmakerTicket"), FName(*Session->SessionName.ToString()), PlayerIdRef);
+					ServerAPI->RedeemMatchmakerTicket(Request, SuccessDelegate, ErrorDelegate);
+				}
+				else
+				{
+					PlayFab::ServerModels::FAuthenticateSessionTicketRequest Request;
+					Request.SessionTicket = SessionTicket;
+
+					auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FAuthenticateSessionTicketDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_AuthenticateSessionTicket, FName(*Session->SessionName.ToString()));
+					auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("AuthenticateSessionTicket"), FName(*Session->SessionName.ToString()), PlayerIdRef);
+					ServerAPI->AuthenticateSessionTicket(Request, SuccessDelegate, ErrorDelegate);
+				}
+				Result = ERROR_IO_PENDING;
+			}
+		}
+	}
+	if (Result != ERROR_IO_PENDING)
+	{
+		TriggerOnAuthenticatePlayerCompleteDelegates(PlayerId, (Result == ERROR_SUCCESS) ? true : false);
+	}
+	return (Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING) ? true : false;
 }
 
 bool FOnlineSessionPlayFab::CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
@@ -299,7 +512,7 @@ bool FOnlineSessionPlayFab::CreateSession(int32 HostingPlayerNum, FName SessionN
 		// if did not get a valid one, use just something
 		if (!Session->OwningUserId.IsValid())
 		{
-			Session->OwningUserId = MakeShareable(new FUniqueNetIdString(FString::Printf(TEXT("%d"), HostingPlayerNum)));
+			Session->OwningUserId = MakeShareable(new FUniqueNetIdPlayFabId(FString::Printf(TEXT("%d"), HostingPlayerNum)));
 			Session->OwningUserName = FString(TEXT("PlayFabUser"));
 		}
 
@@ -308,14 +521,7 @@ bool FOnlineSessionPlayFab::CreateSession(int32 HostingPlayerNum, FName SessionN
 
 		if (!Session->SessionSettings.bIsLANMatch)
 		{
-			if (Session->SessionSettings.bUsesPresence)
-			{
-				//Result = CreateLobbySession(HostingPlayerNum, Session);
-			}
-			else
-			{
-				Result = CreateInternetSession(HostingPlayerNum, Session);
-			}
+			Result = CreateInternetSession(HostingPlayerNum, Session);
 		}
 		else
 		{
@@ -353,7 +559,7 @@ bool FOnlineSessionPlayFab::CreateSession(int32 HostingPlayerNum, FName SessionN
 
 bool FOnlineSessionPlayFab::CreateSession(const FUniqueNetId& HostingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
 {
-	// todo: use proper	HostingPlayerId
+	// Shouldn't need proper HostingPlayerNum, why the hell would we create multiple session on one game instance?
 	return CreateSession(0, SessionName, NewSessionSettings);
 }
 
@@ -367,97 +573,81 @@ uint32 FOnlineSessionPlayFab::CreateInternetSession(int32 HostingPlayerNum, clas
 	{
 		if (Session->SessionSettings.bIsDedicated)
 		{
-			if (!ErrorDelegate_Server.IsBound())
+			PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+
+			if (ServerAPI.IsValid())
 			{
-				PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
-
-				if (ServerAPI.IsValid())
+				FString cmdVal;
+				if (FParse::Value(FCommandLine::Get(), TEXT("game_id"), cmdVal))
 				{
-					TMap<FString, FString> Tags;
+					// Server is already registered with PlayFab, update data
+					FOnlineSessionInfoPlayFab* NewSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionPlayFab, FUniqueNetIdLobbyId(*cmdVal));
+					NewSessionInfo->Init(*PlayFabSubsystem);
+					Session->SessionInfo = MakeShareable(NewSessionInfo);
+					Session->SessionState = EOnlineSessionState::Pending;
+					RegisterLocalPlayers(Session);
+					UpdateSession(FName(*Session->SessionName.ToString()), Session->SessionSettings, true);
+					TriggerOnCreateSessionCompleteDelegates(FName(*Session->SessionName.ToString()), true);
+					return ERROR_SUCCESS;
+				}
 
-					Tags.Add("bAllowInvites", Session->SessionSettings.bAllowInvites ? TEXT("true") : TEXT("false"));
-					Tags.Add("bAllowJoinInProgress", Session->SessionSettings.bAllowJoinInProgress ? TEXT("true") : TEXT("false"));
-					Tags.Add("bAllowJoinViaPresence", Session->SessionSettings.bAllowJoinViaPresence ? TEXT("true") : TEXT("false"));
-					Tags.Add("bAllowJoinViaPresenceFriendsOnly", Session->SessionSettings.bAllowJoinViaPresenceFriendsOnly ? TEXT("true") : TEXT("false"));
-					Tags.Add("bAntiCheatProtected", Session->SessionSettings.bAntiCheatProtected ? TEXT("true") : TEXT("false"));
-					Tags.Add("bShouldAdvertise", Session->SessionSettings.bShouldAdvertise ? TEXT("true") : TEXT("false"));
-					Tags.Add("bUsesPresence", Session->SessionSettings.bUsesPresence ? TEXT("true") : TEXT("false"));
-					Tags.Add("bUsesStats", Session->SessionSettings.bUsesStats ? TEXT("true") : TEXT("false"));
-					Tags.Add("NumPublicConnections", FString::FromInt(Session->SessionSettings.NumPublicConnections));
-					Tags.Add("NumPrivateConnections", FString::FromInt(Session->SessionSettings.NumPrivateConnections));
-					//Tags.Add("Settings", Session->SessionSettings.Settings);
+				// Server isn't registered with PlayFab, let's register it
+				PlayFab::ServerModels::FRegisterGameRequest Request;
 
-					Tags.Add("BuildUniqueId", FString::FromInt(Session->SessionSettings.BuildUniqueId));
+				// Add tags when session is created, after creation we call Update Session to set all server data as well
+				FString MapName;
+				if (Session->SessionSettings.Get(SETTING_MAPNAME, MapName) && !MapName.IsEmpty())
+					Request.Tags.Add(SETTING_MAPNAME.ToString(), MapName);
 
-					for (FSessionSettings::TConstIterator It(Session->SessionSettings.Settings); It; ++It)
-					{
-						FName Key = It.Key();
-						const FOnlineSessionSetting& Setting = It.Value();
-
-						if (Setting.AdvertisementType == EOnlineDataAdvertisementType::ViaOnlineService)
-						{
-							Tags.Add(Key.ToString(), Setting.Data.ToString());
-						}
-					}
-
-					FString cmdVal;
-					if (FParse::Value(FCommandLine::Get(), TEXT("game_id"), cmdVal))
-					{
-						// Server is already registered with PlayFab, update data
-						PlayFab::ServerModels::FSetGameServerInstanceTagsRequest Request;
-
-						Request.LobbyId = cmdVal;
-						Request.Tags = Tags;
-
-						ErrorDelegate_Server = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName(*Session->SessionName.ToString()));
-						ServerAPI->SetGameServerInstanceTags(Request, NULL, ErrorDelegate_Server);
-					}
-					else
-					{
-						// Server isn't registered with PlayFab, let's register it
-						PlayFab::ServerModels::FRegisterGameRequest Request;
-
-						Request.Build = PlayFabSubsystem->GetBuildVersion();
-						if (Session->SessionSettings.Settings.Find(TEXT("GAMENAME")))
-						{
-							Request.GameMode = Session->SessionSettings.Settings[TEXT("GAMENAME")].Data.ToString();
-						}
-						else if (Session->SessionSettings.Settings.Find(SETTING_GAMEMODE))
-						{
-							Request.GameMode = Session->SessionSettings.Settings[SETTING_GAMEMODE].Data.ToString();
-						}
-
-						const FOnlineSessionSetting* RegionSetting = Session->SessionSettings.Settings.Find(SETTING_REGION);
-						Request.pfRegion = PlayFab::ServerModels::readRegionFromValue(RegionSetting->ToString());
-
-						bool bCanBindAll;
-						TSharedPtr<class FInternetAddr> HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalHostAddr(*GLog, bCanBindAll);
-						Request.ServerHost = HostAddr->ToString(false);
-						int32 port = HostAddr->GetPort();
-						port = port != 0 ? port : 7777;
-						Request.ServerPort = FString::FromInt(port);
-						Request.Tags = Tags;
-
-						SuccessDelegate_Server_RegisterGame = PlayFab::UPlayFabServerAPI::FRegisterGameDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_RegisterGame, FName(*Session->SessionName.ToString()));
-						ErrorDelegate_Server = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName(*Session->SessionName.ToString()));
-						ServerAPI->RegisterGame(Request, SuccessDelegate_Server_RegisterGame, ErrorDelegate_Server);
-					}
-
-					Result = ERROR_IO_PENDING;
+				Request.Build = PlayFabSubsystem->GetBuildVersion();
+				if (Session->SessionSettings.Settings.Find(SETTING_GAMENAME))
+				{
+					Request.GameMode = Session->SessionSettings.Settings[SETTING_GAMENAME].Data.ToString();
+				}
+				else if (Session->SessionSettings.Settings.Find(SETTING_GAMEMODE))
+				{
+					Request.GameMode = Session->SessionSettings.Settings[SETTING_GAMEMODE].Data.ToString();
 				}
 				else
 				{
-					UE_LOG_ONLINE(Verbose, TEXT("CreateInternetSession: Failed to initialize game server with PlayFab."));
+					UE_LOG_ONLINE(Error, TEXT("CreateInternetSession: Can not register game without either SETTING_GAMENAME or SETTING_GAMEMODE set."));
+					return E_FAIL;
 				}
+
+				const FOnlineSessionSetting* RegionSetting = Session->SessionSettings.Settings.Find(SETTING_REGION);
+				if (RegionSetting != nullptr)
+				{
+					Request.pfRegion = PlayFab::ServerModels::readRegionFromValue(RegionSetting->ToString());
+				}
+
+				bool bCanBindAll;
+				TSharedPtr<class FInternetAddr> HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLocalHostAddr(*GLog, bCanBindAll);
+				if (FParse::Value(FCommandLine::Get(), TEXT("server_host_domain"), cmdVal))
+				{
+					bool bIsValid;
+					HostAddr->SetIp(*cmdVal, bIsValid);
+				}
+				HostAddr->SetPort(FURL::UrlConfig.DefaultPort);
+
+				Request.ServerHost = HostAddr->ToString(false);
+				int32 port = HostAddr->GetPort();
+				port = port != 0 ? port : 7777;
+				Request.ServerPort = FString::FromInt(port);
+
+				auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FRegisterGameDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_RegisterGame, FName(*Session->SessionName.ToString()));
+				auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("RegisterGame"), FName(*Session->SessionName.ToString()));
+				ServerAPI->RegisterGame(Request, SuccessDelegate, ErrorDelegate);
+
+				Result = ERROR_IO_PENDING;
 			}
 			else
 			{
-				UE_LOG_ONLINE(Verbose, TEXT("CreateInternetSession: Already waiting for LobbyId."));
+				UE_LOG_ONLINE(Verbose, TEXT("CreateInternetSession: Failed to initialize game server with PlayFab."));
 			}
 		}
 		else
 		{
-			UE_LOG_ONLINE(Verbose, TEXT("CreateInternetSession: PlayFab can not currently create sessions for anything EXCEPT dedicated servers."));
+			UE_LOG_ONLINE(Verbose, TEXT("CreateInternetSession: Can't register a non-dedicated server through PlayFab services!"));
 		}
 	}
 	else
@@ -508,17 +698,23 @@ bool FOnlineSessionPlayFab::StartSession(FName SessionName)
 		{
 			if (!Session->SessionSettings.bIsLANMatch)
 			{
-				Result = ERROR_SUCCESS;
 				Session->SessionState = EOnlineSessionState::InProgress;
+				FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
 
-				/*if (SteamFriends() != NULL)
+				//Result = ERROR_SUCCESS;
+				PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+
+				if (ServerAPI.IsValid())
 				{
-					for (int32 PlayerIdx = 0; PlayerIdx < Session->RegisteredPlayers.Num(); PlayerIdx++)
-					{
-						FUniqueNetIdSteam& Player = (FUniqueNetIdSteam&)Session->RegisteredPlayers[PlayerIdx].Get();
-						SteamFriends()->SetPlayedWith(Player);
-					}
-				}*/
+					PlayFab::ServerModels::FSetGameServerInstanceStateRequest Request;
+					Request.LobbyId = SessionInfo->SessionId.ToString();
+					Request.State = PlayFab::ServerModels::GameInstanceState::GameInstanceStateOpen;
+
+					auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FSetGameServerInstanceStateDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_InstanceState, FName(*Session->SessionName.ToString()));
+					auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("SetGameServerInstanceState"), FName(*Session->SessionName.ToString()));
+					ServerAPI->SetGameServerInstanceState(Request, SuccessDelegate, ErrorDelegate);
+					Result = ERROR_IO_PENDING;
+				}
 			}
 			else
 			{
@@ -558,78 +754,147 @@ bool FOnlineSessionPlayFab::UpdateSession(FName SessionName, FOnlineSessionSetti
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
 	{
+		// Worry about properly owning the session another time
+		/*TSharedPtr<const FUniqueNetId> UniqueId = PlayFabSubsystem->GetIdentityInterface()->GetUniquePlayerId(0);
+		if (!UniqueId.IsValid() || *Session->OwningUserId != *UniqueId)
+		{
+			UE_LOG_ONLINE(Warning, TEXT("Need to own session (%s) before updating.  Current Owner: %s"), *SessionName.ToString(), *Session->OwningUserName);
+			return false;
+		}*/
 		if (!Session->SessionSettings.bIsLANMatch)
 		{
-			FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
-
-			if (SessionInfo->SessionType == EPlayFabSession::LobbySession && SessionInfo->SessionId.IsValid())
+			bool bUsesPresence = Session->SessionSettings.bUsesPresence;
+			if (bUsesPresence != UpdatedSessionSettings.bUsesPresence)
 			{
-				// Lobby update
-				//FOnlineAsyncTaskSteamUpdateLobby* NewTask = new FOnlineAsyncTaskSteamUpdateLobby(SteamSubsystem, SessionName, bShouldRefreshOnlineData, UpdatedSessionSettings);
-				//SteamSubsystem->QueueAsyncTask(NewTask);
+				UE_LOG_ONLINE(Warning, TEXT("Can't change presence settings on existing session %s, ignoring."), *SessionName.ToString());
+				UpdatedSessionSettings.bUsesPresence = bUsesPresence;
 			}
-			else if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost)
+
+			Session->SessionSettings = UpdatedSessionSettings;
+
+			if (bShouldRefreshOnlineData)
 			{
-				// Gameserver update
-				bool bUsesPresence = Session->SessionSettings.bUsesPresence;
-				if (bUsesPresence != UpdatedSessionSettings.bUsesPresence)
-				{
-					UE_LOG_ONLINE(Warning, TEXT("Can't change presence settings on existing session %s, ignoring."), *SessionName.ToString());
-				}
-
-				Session->SessionSettings = UpdatedSessionSettings;
-				Session->SessionSettings.bUsesPresence = bUsesPresence;
-
-				PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
-
-				if (bShouldRefreshOnlineData && ServerAPI.IsValid())
-				{
-					PlayFab::ServerModels::FSetGameServerInstanceTagsRequest Request;
-
-					Request.LobbyId = SessionInfo->SessionId.ToString();
-					Request.Tags.Add("bAllowInvites", Session->SessionSettings.bAllowInvites ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("bAllowJoinInProgress", Session->SessionSettings.bAllowJoinInProgress ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("bAllowJoinViaPresence", Session->SessionSettings.bAllowJoinViaPresence ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("bAllowJoinViaPresenceFriendsOnly", Session->SessionSettings.bAllowJoinViaPresenceFriendsOnly ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("bAntiCheatProtected", Session->SessionSettings.bAntiCheatProtected ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("bShouldAdvertise", Session->SessionSettings.bShouldAdvertise ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("bUsesPresence", Session->SessionSettings.bUsesPresence ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("bUsesStats", Session->SessionSettings.bUsesStats ? TEXT("true") : TEXT("false"));
-					Request.Tags.Add("NumPublicConnections", FString::FromInt(Session->SessionSettings.NumPublicConnections));
-					Request.Tags.Add("NumPrivateConnections", FString::FromInt(Session->SessionSettings.NumPrivateConnections));
-
-					Request.Tags.Add("BuildUniqueId", FString::FromInt(Session->SessionSettings.BuildUniqueId));
-
-					for (FSessionSettings::TConstIterator It(Session->SessionSettings.Settings); It; ++It)
-					{
-						FName Key = It.Key();
-						const FOnlineSessionSetting& Setting = It.Value();
-
-						if (Setting.AdvertisementType == EOnlineDataAdvertisementType::ViaOnlineService)
-						{
-							Request.Tags.Add(Key.ToString(), Setting.Data.ToString());
-						}
-					}
-					// We must send them ALL again, as this will overwrite all tags(any not written will be nil)
-
-					ErrorDelegate_Server = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName(*Session->SessionName.ToString()));
-					ServerAPI->SetGameServerInstanceTags(Request, NULL, ErrorDelegate_Server);
-				}
+				UpdateInternetSession(Session);
 			}
 		}
 		else
 		{
-			// @TODO ONLINE update LAN settings
+			// TODO: Care about LAN servers
 			Session->SessionSettings = UpdatedSessionSettings;
 			TriggerOnUpdateSessionCompleteDelegates(SessionName, bWasSuccessful);
 		}
-
-		/*// @TODO ONLINE update LAN settings
-		Session->SessionSettings = UpdatedSessionSettings;
-		TriggerOnUpdateSessionCompleteDelegates(SessionName, bWasSuccessful);*/
 	}
 
 	return bWasSuccessful;
+}
+
+uint32 FOnlineSessionPlayFab::UpdateInternetSession(FNamedOnlineSession* Session)
+{
+	uint32 Result = E_FAIL;
+
+	FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
+
+	if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionPlayFab || SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost)
+	{
+		// Game server update
+		PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+
+		if (ServerAPI.IsValid())
+		{
+			PlayFab::ServerModels::FSetGameServerInstanceTagsRequest Request;
+			PlayFab::ServerModels::FSetGameServerInstanceDataRequest DataRequest;
+
+			Request.LobbyId = SessionInfo->SessionId.ToString();
+			DataRequest.LobbyId = SessionInfo->SessionId.ToString();
+
+			// Only add tags when applicable
+			if (Session->SessionSettings.bAllowInvites)
+				Request.Tags.Add("bAllowInvites", TEXT("true"));
+			if (Session->SessionSettings.bAllowJoinInProgress)
+				Request.Tags.Add("bAllowJoinInProgress", TEXT("true"));
+			if (Session->SessionSettings.bAllowJoinViaPresence)
+				Request.Tags.Add("bAllowJoinViaPresence", TEXT("true"));
+			if (Session->SessionSettings.bAllowJoinViaPresenceFriendsOnly)
+				Request.Tags.Add("bAllowJoinViaPresenceFriendsOnly", TEXT("true"));
+			if (Session->SessionSettings.bAntiCheatProtected)
+				Request.Tags.Add("bAntiCheatProtected", TEXT("true"));
+			if (Session->SessionSettings.bIsDedicated)
+				Request.Tags.Add("bIsDedicated", TEXT("true"));
+			if (Session->SessionSettings.bShouldAdvertise)
+				Request.Tags.Add("bShouldAdvertise", TEXT("true"));
+			if (Session->SessionSettings.bUsesPresence)
+				Request.Tags.Add("bUsesPresence", TEXT("true"));
+			if (Session->SessionSettings.bUsesStats)
+				Request.Tags.Add("bUsesStats", TEXT("true"));
+
+			Request.Tags.Add("bEmpty", (Session->RegisteredPlayers.Num() == 0) ? TEXT("true") : TEXT("false"));
+
+			TSharedPtr< FJsonObject > InstanceDataJsonObj = MakeShareable(new FJsonObject);
+
+			InstanceDataJsonObj->SetBoolField("bAllowInvites", Session->SessionSettings.bAllowInvites);
+			InstanceDataJsonObj->SetBoolField("bAllowJoinInProgress", Session->SessionSettings.bAllowJoinInProgress);
+			InstanceDataJsonObj->SetBoolField("bAllowJoinViaPresence", Session->SessionSettings.bAllowJoinViaPresence);
+			InstanceDataJsonObj->SetBoolField("bAllowJoinViaPresenceFriendsOnly", Session->SessionSettings.bAllowJoinViaPresenceFriendsOnly);
+			InstanceDataJsonObj->SetBoolField("bAntiCheatProtected", Session->SessionSettings.bAntiCheatProtected);
+			InstanceDataJsonObj->SetBoolField("bIsDedicated", Session->SessionSettings.bIsDedicated);
+			InstanceDataJsonObj->SetBoolField("bShouldAdvertise", Session->SessionSettings.bShouldAdvertise);
+			InstanceDataJsonObj->SetBoolField("bUsesPresence", Session->SessionSettings.bUsesPresence);
+			InstanceDataJsonObj->SetBoolField("bUsesStats", Session->SessionSettings.bUsesStats);
+
+			InstanceDataJsonObj->SetNumberField("BuildUniqueId", Session->SessionSettings.BuildUniqueId);
+
+			TArray<TSharedPtr<FJsonValue>> SettingsJsonArray;
+
+			for (FSessionSettings::TConstIterator It(Session->SessionSettings.Settings); It; ++It)
+			{
+				FName Key = It.Key();
+				const FOnlineSessionSetting& Setting = It.Value();
+
+				switch (Setting.AdvertisementType)
+				{
+				case EOnlineDataAdvertisementType::ViaOnlineServiceAndPing:
+				case EOnlineDataAdvertisementType::ViaOnlineService: // ViaOnlineService will be server instance data
+				{
+					TSharedPtr< FJsonObject > JsonObj = MakeShareable(new FJsonObject);
+					JsonObj->SetStringField("Key", Key.ToString());
+					JsonObj->SetObjectField("Value", Setting.Data.ToJson());
+					TSharedPtr< FJsonValue > JsonVal = MakeShareable(new FJsonValueObject(JsonObj));
+					SettingsJsonArray.Add(JsonVal);
+
+					// If not both, then break
+					if (Setting.AdvertisementType != EOnlineDataAdvertisementType::ViaOnlineServiceAndPing)
+						break;
+				}
+				case EOnlineDataAdvertisementType::ViaPingOnly: // ViaPing will be server instance tags(tags can be used to filter server list)
+				{
+					Request.Tags.Add(Key.ToString(), Setting.Data.ToString());
+
+					// If not both, then break
+					if (Setting.AdvertisementType != EOnlineDataAdvertisementType::ViaOnlineServiceAndPing)
+						break;
+				}
+				case EOnlineDataAdvertisementType::DontAdvertise:
+				default:
+					break;
+				}
+			}
+			InstanceDataJsonObj->SetArrayField("Settings", SettingsJsonArray);
+
+			FString OutputString;
+			TSharedRef<TJsonWriter<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>> Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&OutputString);
+			FJsonSerializer::Serialize(InstanceDataJsonObj.ToSharedRef(), Writer);
+			DataRequest.GameServerData = OutputString;
+
+			// We must send them ALL again, as this will overwrite all tags(any not written will be nil)
+			auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("SetGameServerInstanceTags"), FName(*Session->SessionName.ToString()));
+			ServerAPI->SetGameServerInstanceTags(Request, NULL, ErrorDelegate);
+			auto DataSuccessDelegate = PlayFab::UPlayFabServerAPI::FSetGameServerInstanceDataDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_InstanceData, FName(*Session->SessionName.ToString()));
+			auto DataErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("SetGameServerInstanceData"), FName(*Session->SessionName.ToString()));
+			ServerAPI->SetGameServerInstanceData(DataRequest, DataSuccessDelegate, DataErrorDelegate);
+		}
+	}
+
+	return Result;
 }
 
 bool FOnlineSessionPlayFab::EndSession(FName SessionName)
@@ -643,11 +908,26 @@ bool FOnlineSessionPlayFab::EndSession(FName SessionName)
 		// Can't end a match that isn't in progress
 		if (Session->SessionState == EOnlineSessionState::InProgress)
 		{
-			Session->SessionState = EOnlineSessionState::Ended;
+			Session->SessionState = EOnlineSessionState::Ending;
 
 			if (!Session->SessionSettings.bIsLANMatch)
 			{
-				//Result = EndInternetSession(Session);
+				FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
+
+				//Result = ERROR_SUCCESS;
+				PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
+
+				if (ServerAPI.IsValid())
+				{
+					PlayFab::ServerModels::FSetGameServerInstanceStateRequest Request;
+					Request.LobbyId = SessionInfo->SessionId.ToString();
+					Request.State = PlayFab::ServerModels::GameInstanceState::GameInstanceStateClosed;
+
+					auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FSetGameServerInstanceStateDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_InstanceState, FName(*Session->SessionName.ToString()));
+					auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("SetGameServerInstanceState"), FName(*Session->SessionName.ToString()));
+					ServerAPI->SetGameServerInstanceState(Request, SuccessDelegate, ErrorDelegate);
+					Result = ERROR_IO_PENDING;
+				}
 			}
 			else
 			{
@@ -700,14 +980,7 @@ bool FOnlineSessionPlayFab::DestroySession(FName SessionName, const FOnDestroySe
 		{
 			if (!Session->SessionSettings.bIsLANMatch)
 			{
-				if (Session->SessionSettings.bUsesPresence)
-				{
-					//Result = DestroyLobbySession(Session, CompletionDelegate);
-				}
-				else
-				{
-					Result = DestroyInternetSession(Session, CompletionDelegate);
-				}
+				Result = DestroyInternetSession(Session, CompletionDelegate);
 			}
 			else
 			{
@@ -754,30 +1027,40 @@ uint32 FOnlineSessionPlayFab::DestroyInternetSession(FNamedOnlineSession* Sessio
 	if (Session->SessionInfo.IsValid())
 	{
 		FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
-		check(SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost || SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionClient);
 
-		if (PlayFabSubsystem->IsServer()) // true if Listen or Dedicated
+		if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionPlayFab)
 		{
-			PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
+			// PlayFab will know when the process is closed, no action should be required
+		}
+		else if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost)
+		{
+			// External Servers need to remove the session from matchmaker
+			PlayFabServerPtr ServerAPI = PlayFabSubsystem->GetServerAPI();
 			if (ServerAPI.IsValid())
 			{
 				PlayFab::ServerModels::FDeregisterGameRequest Request;
 				Request.LobbyId = SessionInfo->SessionId.ToString();
 
-				SuccessDelegate_Server_DeregisterGame = PlayFab::UPlayFabServerAPI::FDeregisterGameDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_DeregisterGame, FName(*Session->SessionName.ToString()));
-				ErrorDelegate_Server = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName(*Session->SessionName.ToString()));
-				ServerAPI->DeregisterGame(Request, SuccessDelegate_Server_DeregisterGame, ErrorDelegate_Server);
+				auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FDeregisterGameDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_DeregisterGame, FName(*Session->SessionName.ToString()));
+				auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("DeregisterGame"), FName(*Session->SessionName.ToString()));
+				ServerAPI->DeregisterGame(Request, SuccessDelegate, ErrorDelegate);
+#if UE_EDITOR
+				// Have to remove instantly with editor since it'll keep the session valid throughout PIE
+				RemoveNamedSession(Session->SessionName);
+				return ERROR_SUCCESS;
+#else
+				return ERROR_IO_PENDING;
+#endif
 			}
 		}
-		else
+		else if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionClient)
 		{
+			// Client just need to remove the session
 			RemoveNamedSession(Session->SessionName);
-			TriggerOnDestroySessionCompleteDelegates(Session->SessionName, true);
-			return ERROR_SUCCESS;
 		}
 	}
 
-	return ERROR_IO_PENDING;
+	return ERROR_SUCCESS;
 }
 
 bool FOnlineSessionPlayFab::IsPlayerInSession(FName SessionName, const FUniqueNetId& UniqueId)
@@ -807,23 +1090,64 @@ bool FOnlineSessionPlayFab::StartMatchmaking(const TArray< TSharedRef<const FUni
 		CurrentMatchmakeSearch->SearchState = EOnlineAsyncTaskState::InProgress;
 
 		PlayFab::ClientModels::FMatchmakeRequest Request;
-		Request.BuildVersion = PlayFabSubsystem->GetBuildVersion();
-		Request.StartNewIfNoneFound = true;
 
 		FString OutValue;
-		if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
+		bool OutBool;
+		// Lobby Id or...
+		if (SearchSettings->QuerySettings.Get(SETTING_LOBBYID, OutValue))
 		{
-			Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
+			Request.LobbyId = OutValue;
 		}
 		else
 		{
-			Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
-		}
-		//Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
+			// BuildId, Gamemode, and Region
+			Request.BuildVersion = PlayFabSubsystem->GetBuildVersion();
 
-		SuccessDelegate_Client_Matchmake = PlayFab::UPlayFabClientAPI::FMatchmakeDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake, SessionName);
-		ErrorDelegate_Client = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client);
-		ClientAPI->Matchmake(Request, SuccessDelegate_Client_Matchmake, ErrorDelegate_Client);
+			if (SearchSettings->QuerySettings.Get(SETTING_GAMENAME, OutValue))
+			{
+				Request.GameMode = OutValue;
+			}
+			else if (SearchSettings->QuerySettings.Get(SETTING_GAMEMODE, OutValue))
+			{
+				Request.GameMode = OutValue;
+			}
+			else
+			{
+				UE_LOG_ONLINE(Error, TEXT("PlayFab Matchmaking requires either a LobbyId or Region and GameMode!"));
+				TriggerOnMatchmakingCompleteDelegates(SessionName, false);
+				return false;
+			}
+
+			if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
+			{
+				Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
+			}
+			else
+			{
+				UE_LOG_ONLINE(Error, TEXT("PlayFab Matchmaking requires either a LobbyId or Region and GameMode!"));
+				TriggerOnMatchmakingCompleteDelegates(SessionName, false);
+				return false;
+			}
+		}
+
+		if (SearchSettings->QuerySettings.Get(SETTING_MATCHING_CHARACTERID, OutValue))
+		{
+			Request.CharacterId = OutValue;
+		}
+
+		if (SearchSettings->QuerySettings.Get(SETTING_MATCHING_STATISTICNAME, OutValue))
+		{
+			Request.StatisticName = OutValue;
+		}
+
+		if (SearchSettings->QuerySettings.Get(SETTING_MATCHING_STARTNEW, OutBool))
+		{
+			Request.StartNewIfNoneFound = OutBool;
+		}
+
+		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FMatchmakeDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake, SessionName);
+		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client, FName("Matchmake"), SessionName);
+		ClientAPI->Matchmake(Request, SuccessDelegate, ErrorDelegate);
 		return true;
 	}
 	else
@@ -853,6 +1177,7 @@ bool FOnlineSessionPlayFab::CancelMatchmaking(int32 SearchingPlayerNum, FName Se
 
 bool FOnlineSessionPlayFab::CancelMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName)
 {
+	// The matchmaking user doesn't matter, use 0
 	return CancelMatchmaking(0, SessionName);
 }
 
@@ -874,6 +1199,7 @@ bool FOnlineSessionPlayFab::FindSessions(int32 SearchingPlayerNum, const TShared
 
 		// Copy the search pointer so we can keep it around
 		CurrentSessionSearch = SearchSettings;
+		SearchSettings->SearchState = EOnlineAsyncTaskState::Failed; // Default to failed
 
 		if (SearchSettings->bIsLanQuery == false)
 		{
@@ -919,39 +1245,120 @@ bool FOnlineSessionPlayFab::FindSessionById(const FUniqueNetId& SearchingUserId,
 
 uint32 FOnlineSessionPlayFab::FindInternetSession(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	bool PresenceSearch = false;
-	if (SearchSettings->QuerySettings.Get(SEARCH_PRESENCE, PresenceSearch) && PresenceSearch)
+	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(SearchingPlayerNum);
+	if (ClientAPI.IsValid())
 	{
-		//FOnlineAsyncTaskSteamFindLobbies* NewTask = new FOnlineAsyncTaskSteamFindLobbies(SteamSubsystem, SearchSettings);
-		//SteamSubsystem->QueueAsyncTask(NewTask);
+		PlayFab::ClientModels::FCurrentGamesRequest Request;
+		Request.BuildVersion = PlayFabSubsystem->GetBuildVersion();
+
+		FString OutValue;
+		if (SearchSettings->QuerySettings.Get(SETTING_GAMENAME, OutValue))
+		{
+			Request.GameMode = OutValue;
+		}
+		else if (SearchSettings->QuerySettings.Get(SETTING_GAMEMODE, OutValue))
+		{
+			Request.GameMode = OutValue;
+		}
+
+		if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
+		{
+			Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
+		}
+
+		if (SearchSettings->QuerySettings.Get(SETTING_MATCHING_STATISTICNAME, OutValue))
+		{
+			Request.StatisticName = OutValue;
+		}
+
+		PlayFab::ClientModels::FContainer_Dictionary_String_String ExcludesDictionary;
+		PlayFab::ClientModels::FContainer_Dictionary_String_String IncludesDictionary;
+
+		// Copy the params so we can remove the values as we use them
+		FOnlineSearchSettings TempSearchSettings = SearchSettings->QuerySettings;
+
+		// for each SEARCH_ define, we must do separately, since their tag keys are named differently
+
+		// The first 4 are added directly via the FOnlineSessionSearch Constructor thus need to be handled differently
+		FString MapName;
+		if (TempSearchSettings.Get(SETTING_MAPNAME, MapName) && !MapName.IsEmpty())
+		{
+			IncludesDictionary.Data.Add(SETTING_MAPNAME.ToString(), MapName);
+		}
+		TempSearchSettings.SearchParams.Remove(SETTING_MAPNAME);
+
+		bool DedicatedOnly;
+		if (TempSearchSettings.Get(SEARCH_DEDICATED_ONLY, DedicatedOnly) && DedicatedOnly)
+		{
+			IncludesDictionary.Data.Add("bIsDedicated", TEXT("true"));
+		}
+		TempSearchSettings.SearchParams.Remove(SEARCH_DEDICATED_ONLY);
+
+		bool SecureOnly;
+		if (TempSearchSettings.Get(SEARCH_SECURE_SERVERS_ONLY, SecureOnly) && SecureOnly)
+		{
+			IncludesDictionary.Data.Add("bAntiCheatProtected", TEXT("true"));
+		}
+		TempSearchSettings.SearchParams.Remove(SEARCH_SECURE_SERVERS_ONLY);
+
+		bool EmptyOnly;
+		if (TempSearchSettings.Get(SEARCH_EMPTY_SERVERS_ONLY, EmptyOnly) && EmptyOnly)
+		{
+			IncludesDictionary.Data.Add("bEmpty", TEXT("true"));
+		}
+		TempSearchSettings.SearchParams.Remove(SEARCH_EMPTY_SERVERS_ONLY);
+
+		bool NonEmptyOnly;
+		if (TempSearchSettings.Get(SEARCH_NONEMPTY_SERVERS_ONLY, NonEmptyOnly) && NonEmptyOnly)
+		{
+			ExcludesDictionary.Data.Add("bEmpty", TEXT("true"));
+		}
+		TempSearchSettings.SearchParams.Remove(SEARCH_NONEMPTY_SERVERS_ONLY);
+
+		// TODO: Add the following search defines
+		/*
+		SEARCH_MINSLOTSAVAILABLE
+		*/
+
+		// All other settings should have a tag key to match the define
+		for (FSearchParams::TConstIterator It(SearchSettings->QuerySettings.SearchParams); It; ++It)
+		{
+			const FName Key = It.Key();
+			const FOnlineSessionSearchParam& SearchParam = It.Value();
+
+			const FString KeyStr = Key.ToString();
+			if (SearchParam.ComparisonOp == EOnlineComparisonOp::Equals)
+			{
+				IncludesDictionary.Data.Add(KeyStr, SearchParam.Data.ToString());
+			}
+			else if (SearchParam.ComparisonOp == EOnlineComparisonOp::NotEquals)
+			{
+				ExcludesDictionary.Data.Add(KeyStr, SearchParam.Data.ToString());
+			}
+			/*
+			else if (SearchParam.ComparisonOp == EOnlineComparisonOp::In)
+			{
+				IncludesDictionary.Data.Add(KeyStr, "");
+			}
+			else if (SearchParam.ComparisonOp == EOnlineComparisonOp::NotIn)
+			{
+				ExcludesDictionary.Data.Add(KeyStr, "");
+			}
+			*/
+		}
+
+		Request.TagFilter = MakeShareable(new PlayFab::ClientModels::FCollectionFilter);
+		Request.TagFilter->Excludes.Add(ExcludesDictionary);
+		Request.TagFilter->Includes.Add(IncludesDictionary);
+
+		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetCurrentGamesDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames);
+		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client, FName("GetCurrentGames"));
+		ClientAPI->GetCurrentGames(Request, SuccessDelegate, ErrorDelegate);
 	}
 	else
 	{
-		PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(SearchingPlayerNum);
-		if (ClientAPI.IsValid())
-		{
-			PlayFab::ClientModels::FCurrentGamesRequest Request;
-			Request.BuildVersion = PlayFabSubsystem->GetBuildVersion();
-
-			FString OutValue;
-			if (SearchSettings->QuerySettings.Get(SETTING_REGION, OutValue))
-			{
-				Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
-			}
-			else
-			{
-				Request.pfRegion = PlayFab::ClientModels::readRegionFromValue(OutValue);
-			}
-			//Request.pfRegion = PlayFab::ClientModels::Region::RegionUSCentral;
-
-			SuccessDelegate_Client_GetCurrentGames = PlayFab::UPlayFabClientAPI::FGetCurrentGamesDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames);
-			ErrorDelegate_Client = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client);
-			ClientAPI->GetCurrentGames(Request, SuccessDelegate_Client_GetCurrentGames, ErrorDelegate_Client);
-		}
-		else
-		{
-			UE_LOG_ONLINE(Warning, TEXT("PlayFab Client Interface not available"));
-		}
+		UE_LOG_ONLINE(Warning, TEXT("PlayFab Client Interface not available"));
+		return E_FAIL;
 	}
 
 	return ERROR_IO_PENDING;
@@ -995,21 +1402,19 @@ bool FOnlineSessionPlayFab::CancelFindSessions()
 	if (CurrentSessionSearch.IsValid() && CurrentSessionSearch->SearchState == EOnlineAsyncTaskState::InProgress)
 	{
 		// Make sure it's the right type
-		if (CurrentSessionSearch->bIsLanQuery)
+		if (!CurrentSessionSearch->bIsLanQuery)
+		{
+			// We can't stop the PlayFab search currently...
+			Return = ERROR_SUCCESS;
+			// Just clear it out
+			CurrentSessionSearch->SearchState = EOnlineAsyncTaskState::Failed;
+			CurrentSessionSearch = nullptr;
+		}
+		else
 		{
 			Return = ERROR_SUCCESS;
 			LANSession->StopLANSession();
 			CurrentSessionSearch->SearchState = EOnlineAsyncTaskState::Failed;
-		}
-		else
-		{
-			// We can't stop the PlayFab search currently so, not stop...
-			Return = ERROR_IO_PENDING;
-			/*// We can't stop the PlayFab search currently...
- 			Return = ERROR_SUCCESS;
-			// Just clear it out
-			CurrentSessionSearch->SearchState = EOnlineAsyncTaskState::Failed;
-			CurrentSessionSearch = NULL;*/
 		}
 	}
 	else
@@ -1017,9 +1422,13 @@ bool FOnlineSessionPlayFab::CancelFindSessions()
 		UE_LOG_ONLINE(Warning, TEXT("Can't cancel a search that isn't in progress"));
 	}
 
-	if (Return != ERROR_IO_PENDING)
+	if (Return == ERROR_SUCCESS)
 	{
 		TriggerOnCancelFindSessionsCompleteDelegates(true);
+	}
+	else if (Return != ERROR_IO_PENDING)
+	{
+		TriggerOnCancelFindSessionsCompleteDelegates(false);
 	}
 
 	return Return == ERROR_SUCCESS || Return == ERROR_IO_PENDING;
@@ -1043,20 +1452,10 @@ bool FOnlineSessionPlayFab::JoinSession(int32 PlayerNum, FName SessionName, cons
 			{
 				const FOnlineSessionInfoPlayFab* SearchSessionInfo = (const FOnlineSessionInfoPlayFab*)DesiredSession.Session.SessionInfo.Get();
 
-				if (DesiredSession.Session.SessionSettings.bUsesPresence)
-				{
-					FOnlineSessionInfoPlayFab* NewSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::LobbySession, SearchSessionInfo->SessionId);
-					Session->SessionInfo = MakeShareable(NewSessionInfo);
+				FOnlineSessionInfoPlayFab* NewSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionClient, SearchSessionInfo->SessionId);
+				Session->SessionInfo = MakeShareable(NewSessionInfo);
 
-					//Return = JoinLobbySession(PlayerNum, Session, &DesiredSession.Session);
-				}
-				else
-				{
-					FOnlineSessionInfoPlayFab* NewSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionClient, SearchSessionInfo->SessionId);
-					Session->SessionInfo = MakeShareable(NewSessionInfo);
-
-					Return = JoinInternetSession(PlayerNum, Session, &DesiredSession.Session);
-				}
+				Return = JoinInternetSession(PlayerNum, Session, &DesiredSession.Session);
 			}
 			else
 			{
@@ -1150,18 +1549,16 @@ uint32 FOnlineSessionPlayFab::JoinLANSession(int32 PlayerNum, FNamedOnlineSessio
 
 bool FOnlineSessionPlayFab::FindFriendSession(int32 LocalUserNum, const FUniqueNetId& Friend)
 {
-	// this function has to exist due to interface definition, but it does not have a meaningful implementation in Null subsystem
 	TArray<FOnlineSessionSearchResult> EmptySearchResults;
 	TriggerOnFindFriendSessionCompleteDelegates(LocalUserNum, false, EmptySearchResults);
 	return false;
 };
 
+// TODO: Add implementation of FindFriendSession
 bool FOnlineSessionPlayFab::FindFriendSession(const FUniqueNetId& LocalUserId, const FUniqueNetId& Friend)
 {
-	// @todo: use proper LocalUserId
 	return FindFriendSession(0, Friend);
 }
-
 
 bool FOnlineSessionPlayFab::FindFriendSession(const FUniqueNetId& LocalUserId, const TArray<TSharedRef<const FUniqueNetId>>& FriendList)
 {
@@ -1170,32 +1567,32 @@ bool FOnlineSessionPlayFab::FindFriendSession(const FUniqueNetId& LocalUserId, c
 	return false;
 }
 
+// TODO: Add implementation of SendSessionInviteToFriend
 bool FOnlineSessionPlayFab::SendSessionInviteToFriend(int32 LocalUserNum, FName SessionName, const FUniqueNetId& Friend)
 {
-	// this function has to exist due to interface definition, but it does not have a meaningful implementation in Null subsystem
 	return false;
 };
 
 bool FOnlineSessionPlayFab::SendSessionInviteToFriend(const FUniqueNetId& LocalUserId, FName SessionName, const FUniqueNetId& Friend)
 {
-	// this function has to exist due to interface definition, but it does not have a meaningful implementation in Null subsystem
-	return false;
+	return SendSessionInviteToFriend(0, SessionName, Friend);
 }
 
+// TODO: Add implementation of SendSessionInviteToFriends
 bool FOnlineSessionPlayFab::SendSessionInviteToFriends(int32 LocalUserNum, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends)
 {
-	// this function has to exist due to interface definition, but it does not have a meaningful implementation in Null subsystem
 	return false;
 };
 
 bool FOnlineSessionPlayFab::SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends)
 {
-	// this function has to exist due to interface definition, but it does not have a meaningful implementation in Null subsystem
-	return false;
+	return SendSessionInviteToFriends(0, SessionName, Friends);
 }
 
+// TODO: Add implementation of PingSearchResults
 bool FOnlineSessionPlayFab::PingSearchResults(const FOnlineSessionSearchResult& SearchResult)
 {
+	TriggerOnPingSearchResultsCompleteDelegates(false);
 	return false;
 }
 
@@ -1226,7 +1623,7 @@ static bool GetConnectStringFromSessionInfo(TSharedPtr<FOnlineSessionInfoPlayFab
 
 			ConnectInfo = FString::Printf(TEXT("%s:%d"), *SessionInfo->HostAddr->ToString(false), HostPort);
 
-			// These URL token will have to be authenticated in the GameMode...
+			// These URL tokens will have to be authenticated in the GameMode...
 			// Why doesn't the Session get the info back to authenticate!?
 			if (!AuthToken.IsEmpty())
 			{
@@ -1362,7 +1759,7 @@ void FOnlineSessionPlayFab::UnregisterVoice(const FUniqueNetId& PlayerId)
 bool FOnlineSessionPlayFab::RegisterPlayer(FName SessionName, const FUniqueNetId& PlayerId, bool bWasInvited)
 {
 	TArray< TSharedRef<const FUniqueNetId> > Players;
-	Players.Add(MakeShareable(new FUniqueNetIdString(PlayerId)));
+	Players.Add(MakeShareable(new FUniqueNetIdPlayFabId(PlayerId)));
 	return RegisterPlayers(SessionName, Players, bWasInvited);
 }
 
@@ -1383,6 +1780,11 @@ bool FOnlineSessionPlayFab::RegisterPlayers(FName SessionName, const TArray< TSh
 				FUniqueNetIdMatcher PlayerMatch(*PlayerId);
 				if (Session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch) == INDEX_NONE)
 				{
+					if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionPlayFab || SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost)
+					{
+						PlayerJoined(PlayerId.Get(), SessionName);
+					}
+
 					Session->RegisteredPlayers.Add(PlayerId);
 					RegisterVoice(*PlayerId);
 
@@ -1421,7 +1823,7 @@ bool FOnlineSessionPlayFab::RegisterPlayers(FName SessionName, const TArray< TSh
 bool FOnlineSessionPlayFab::UnregisterPlayer(FName SessionName, const FUniqueNetId& PlayerId)
 {
 	TArray< TSharedRef<const FUniqueNetId> > Players;
-	Players.Add(MakeShareable(new FUniqueNetIdString(PlayerId)));
+	Players.Add(MakeShareable(new FUniqueNetIdPlayFabId(PlayerId)));
 	return UnregisterPlayers(SessionName, Players);
 }
 
@@ -1444,6 +1846,11 @@ bool FOnlineSessionPlayFab::UnregisterPlayers(FName SessionName, const TArray< T
 				int32 RegistrantIndex = Session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch);
 				if (RegistrantIndex != INDEX_NONE)
 				{
+					if (SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionPlayFab || SessionInfo->SessionType == EPlayFabSession::AdvertisedSessionHost)
+					{
+						PlayerLeft(PlayerId.Get(), SessionName);
+					}
+
 					Session->RegisteredPlayers.RemoveAtSwap(RegistrantIndex);
 					UnregisterVoice(*PlayerId);
 
@@ -1481,7 +1888,7 @@ bool FOnlineSessionPlayFab::UnregisterPlayers(FName SessionName, const TArray< T
 void FOnlineSessionPlayFab::Tick(float DeltaTime)
 {
 	SCOPE_CYCLE_COUNTER(STAT_Session_Interface);
-	TickLanTasks(DeltaTime);
+	//TickLanTasks(DeltaTime);
 }
 
 void FOnlineSessionPlayFab::TickLanTasks(float DeltaTime)
@@ -1495,7 +1902,7 @@ void FOnlineSessionPlayFab::TickLanTasks(float DeltaTime)
 void FOnlineSessionPlayFab::AppendSessionToPacket(FNboSerializeToBufferPlayFab& Packet, FOnlineSession* Session)
 {
 	/** Owner of the session */
-	Packet << *StaticCastSharedPtr<const FUniqueNetIdString>(Session->OwningUserId)
+	Packet << *StaticCastSharedPtr<const FUniqueNetIdPlayFabId>(Session->OwningUserId)
 		<< Session->OwningUserName
 		<< Session->NumOpenPrivateConnections
 		<< Session->NumOpenPublicConnections;
@@ -1595,7 +2002,7 @@ void FOnlineSessionPlayFab::ReadSessionFromPacket(FNboSerializeFromBufferPlayFab
 #endif
 
 	/** Owner of the session */
-	FUniqueNetIdString* UniqueId = new FUniqueNetIdString;
+	FUniqueNetIdPlayFabId* UniqueId = new FUniqueNetIdPlayFabId;
 	Packet >> *UniqueId
 		>> Session->OwningUserName
 		>> Session->NumOpenPrivateConnections

@@ -14,6 +14,8 @@
 class FOnlineEntitlementPlayFab : public FOnlineEntitlement
 {
 public:
+	FDateTime PurchaseDate;
+	FDateTime Expiration;
 	TMap<FString, FString> Attrs;
 	
 	virtual bool GetAttribute(const FString& AttrName, FString& OutAttrValue) const override
