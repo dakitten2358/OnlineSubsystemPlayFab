@@ -28,6 +28,17 @@ This will most likely not be enough for everything to know that you are logged i
 
 Sessions will use the Project Setting's build version to send to PlayFab, make sure they stay consistent!  
 
+## All Config Variables
+```ini
+[OnlineSubsystemPlayFab]
+bEnable=true
+bEnableXpp=true
+bCustomMatchmaker=false
+HeartBeatInterval=60.0
+XmppPort=5222
+XmppHost=192.168.0.100
+```
+
 #### I've logged in to the subsystem, now what?
 ##### Clients
 I have implemented most blueprint avaiable interfaces, so just give them a call.  
@@ -45,23 +56,12 @@ So, if you are submitting builds to PlayFab, then your Secret key will be provid
 If you're not submitting your builds to PlayFab, then you need to add an argument when running the server, "-title_secret_key=YOUR_KEY_HERE"(Unless you have Secret Key set in the Project Settings)  
 Please, never ever ever give out your client/server builds with the secret key filled in, in the project settings!  
 
-After that discussion, on to the actual steps of a server(I call most of these inside GameInstance, so assume those functions):  
-1. On Init, call CreateAdvancedSession with the information filled. This will provide PlayFab with the server data(even if a PlayFab server, still call this!)
-2. Whenever something on the server changes, give UpdateSession a call
-3. Call Destroy Session when server is closing(Call this especially for external servers, or else PlayFab will keep them listed!)
-
-That should be it for the server.
-
-## Config Variables
-```ini
-[OnlineSubsystemPlayFab]
-bEnable=true
-bEnableXpp=true
-bCustomMatchmaker=false
-HeartBeatInterval=60.0
-XmppPort=5222
-XmppHost=192.168.0.100
-```
+After that discussion, on to the actual steps of a server(These I call within GameSession, though you could use GameInstance or GameMode):  
+1. On Init, call CreateSession/CreateAdvancedSession with the information filled. This will provide PlayFab with the server data(even if a PlayFab server, still call this!)
+2. Call StartSession after Session is created and the game has begun(after any warm up)
+3. Whenever something on the session changes, give UpdateSession a call(to update the server instance tags/instance data)
+4. Call EndSession after the Game is done(entering a cooldown state such as showing scoreboard before sending users to home screen)
+5. Call Destroy Session when server is closing(Call this especially for external servers, or else PlayFab will keep them listed!)
 
 # XMPP, if you're into that sort of thing
 
@@ -74,10 +74,15 @@ Don't use [eJabberd](https://www.ejabberd.im/), they don't play well with Jingle
 [OnlineSubsystemPlayFab]
 bEnable=true
 bEnableXmpp=true
+XmppPort=5222
+XmppHost=192.168.0.1
 ```
 
-Currently can't set the XMPP server domain, resource, address, platform... yeah, I'd hold off on the XMPP implementation.
+XmppHost can be a DNS address or IP Address.  
+5222 is the default XMPP Port.  
 
+Now, when the client logs into PlayFab, it will send the PlayFabId as the username, SessionTicket as the password, and the TitleId as the domain.  
+You can view the implementation of this [here](https://gitlab.com/mtuska/OnlineSubsystemPlayFab/blob/master/Plugins/OnlineSubsystemPlayFab/Source/OnlineSubsystemPlayFab/Private/OnlineIdentityPlayFab.cpp#L390)  
 
 ## FAQ
 ##### Actually these are just random problems I'll just assume you'll run into, because I'm rude
