@@ -25,7 +25,6 @@ bEnable=true
 
 Now, you may build your project and open it. Goto your ProjectSettings and fill in the PlayFab Title Id and Secret key(Only have filled in editor!!)  
 Assuming you also downloaded AdvancedSessions you can open blueprints and begin your work.  
-**THE KEY TO LOGGING IN(for this version)** is to call "Login", and then On Success call "Show External Login UI" to finish the setup. This cheat is temporary, hopefully to be corrected later on.  
 
 Sessions will use the Project Setting's build version to send to PlayFab, make sure they stay consistent!  
 
