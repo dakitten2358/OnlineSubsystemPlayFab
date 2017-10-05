@@ -112,6 +112,7 @@ In order to specify the region to create session in or find session in, which by
 "USCentral"
 "USEast"
 ```
+I won't maintian this Region list. To view up to date regions, see [here](https://api.playfab.com/documentation/Client/datatype/PlayFab.Client.Models/PlayFab.Client.Models.Region)  
 
 If any of your issues persist, as this isn't a very extensive list, make an issue on this git and I'll get back to you.
 
