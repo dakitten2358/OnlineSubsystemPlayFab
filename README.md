@@ -92,7 +92,7 @@ You can view the implementation of this [here](https://gitlab.com/mtuska/OnlineS
 ##### Client:
 Did you login first?
 ##### Server:
-Welp, I don't have anything to say for you at the moment...
+Did you create your session?
 
 2. ###### *Help!* I'm receiving the error " - Cannot map local player to unique net ID" when trying to run anything after logging in!
 Make sure you have logged in. if you have, make sure you can called "Show External Login UI" to finish the login processes.  
