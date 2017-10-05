@@ -95,7 +95,7 @@ Did you login first?
 Did you create your session?
 
 2. ###### *Help!* I'm receiving the error " - Cannot map local player to unique net ID" when trying to run anything after logging in!
-Make sure you have logged in. if you have, make sure you can called "Show External Login UI" to finish the login processes.  
+Make sure you have logged in.
 
 3. ###### How do I register new players?
 The OnlineSubsystem has no implementations for Registration, as such you will just have to use PlayFab's API directly to register new users. I currently(this will be adjusted later) only use https://api.playfab.com/documentation/client/method/LoginWithPlayFab and as such, you will need to use https://api.playfab.com/documentation/client/method/RegisterPlayFabUser
@@ -111,6 +111,8 @@ In order to specify the region to create session in or find session in, which by
 "USCentral"
 "USEast"
 ```
+
+If any of your issues persist, as this isn't a very extensive list, make an issue on this git and I'll get back to you.
 
 ## Known Issues
 
