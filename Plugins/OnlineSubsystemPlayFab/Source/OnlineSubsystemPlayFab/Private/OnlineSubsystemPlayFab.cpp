@@ -267,12 +267,12 @@ bool FOnlineSubsystemPlayFab::Init()
 
 	FString cmdVal;
 	if (FParse::Value(FCommandLine::Get(), TEXT("title_secret_key"), cmdVal)) {
-		UE_LOG_ONLINE(Verbose, TEXT("Secret key provided by command line: %s"), *cmdVal);
+		/*UE_LOG_ONLINE(Verbose, TEXT("Secret key provided by command line: %s"), *cmdVal);
 		PlayFabServerPtr ServerAPI = GetServerAPI();
 		if (ServerAPI.IsValid())
 		{
 			ServerAPI->SetDevSecretKey(cmdVal);
-		}
+		}*/
 	}
 
 	return true;
