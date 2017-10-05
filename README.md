@@ -78,7 +78,7 @@ XmppPort=5222
 XmppHost=192.168.0.1
 ```
 
-XmppHost can be a DNS address or IP Address.  
+XmppHost can be a domain name or IP Address.  
 5222 is the default XMPP Port.  
 
 Now, when the client logs into PlayFab, it will send the PlayFabId as the username, SessionTicket as the password, and the TitleId as the domain for XMPP.  
