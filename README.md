@@ -81,8 +81,9 @@ XmppHost=192.168.0.1
 XmppHost can be a DNS address or IP Address.  
 5222 is the default XMPP Port.  
 
-Now, when the client logs into PlayFab, it will send the PlayFabId as the username, SessionTicket as the password, and the TitleId as the domain.  
+Now, when the client logs into PlayFab, it will send the PlayFabId as the username, SessionTicket as the password, and the TitleId as the domain for XMPP.  
 You can view the implementation of this [here](https://gitlab.com/mtuska/OnlineSubsystemPlayFab/blob/master/Plugins/OnlineSubsystemPlayFab/Source/OnlineSubsystemPlayFab/Private/OnlineIdentityPlayFab.cpp#L390)  
+You should use PlayFab's Server/AuthenticateSessionTicket to check the ticket is valid, and then check the PlayFabIds match.
 
 ## FAQ
 ##### Actually these are just random problems I'll just assume you'll run into, because I'm rude
