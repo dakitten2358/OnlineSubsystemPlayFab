@@ -22,7 +22,7 @@ DefaultPlatformService=PlayFab
 bEnable=true
 ```
 
-Now, you may build your project and open it. Goto your ProjectSettings and fill in the PlayFab Title Id and Secret key(Only have filled in editor!!)  
+Now, you may build your project and open it. Goto your ProjectSettings and fill in the PlayFab Title Id and Secret key(Should only have Secret Key on servers, as PlayFab says)  
 Assuming you also downloaded AdvancedSessions you can open blueprints and begin your work.  
 This will most likely not be enough for everything to know that you are logged in, you may need to set the CachedUniqueNetId on the ULocalPlayer.(ULocalPlayer::SetCachedUniqueNetId)  
 
