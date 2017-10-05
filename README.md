@@ -119,4 +119,5 @@ If any of your issues persist, as this isn't a very extensive list, make an issu
 1. LAN  
 Yep, LAN isn't working correctly at the moment, I'll get to fixing it later
 2. Authentication  
-Currently, there is no proper authenticating of users. This is due to the limitations of the OnlineSubsystem, and I shall see what fixes I can provide as I continue to work on this.
+Currently, there is no proper authenticating of users. This is due to the limitations of the OnlineSubsystem, and I shall see what fixes I can provide as I continue to work on this.  
+Right now, we do add AuthToken(SessionTicket) and MatchmakeTicket onto the join URL. You can authenticate these within the AGameMode::PostLogin
