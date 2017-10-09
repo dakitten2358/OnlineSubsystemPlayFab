@@ -164,6 +164,7 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayF
 		}
 
 		CurrentSessionSearch->SortSearchResults();
+		CurrentSessionSearch = nullptr;
 		TriggerOnFindSessionsCompleteDelegates(true);
 	}
 	else
@@ -216,6 +217,10 @@ void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError&
 
 	if (FunctionName == "GetCurrentGames")
 	{
+		if (CurrentSessionSearch.IsValid())
+		{
+			CurrentSessionSearch = NULL;
+		}
 		TriggerOnFindSessionsCompleteDelegates(false);
 	}
 	if (FunctionName == "Matchmake")
@@ -1236,6 +1241,7 @@ bool FOnlineSessionPlayFab::FindSessions(const FUniqueNetId& SearchingPlayerId, 
 	return FindSessions(0, SearchSettings);
 }
 
+// TODO: Add FindSessionById
 bool FOnlineSessionPlayFab::FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegates)
 {
 	FOnlineSessionSearchResult EmptyResult;

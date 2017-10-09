@@ -188,7 +188,8 @@ private:
 	/** Online async task thread */
 	class FRunnableThread* OnlineAsyncTaskThread;
 
-	TMap<int32, PlayFabClientPtr> PlayFabClientPtrs;
+	bool bAttemptSetSecret;
+	static TMap<int32, PlayFabClientPtr> PlayFabClientPtrs;
 };
 
 typedef TSharedPtr<FOnlineSubsystemPlayFab, ESPMode::ThreadSafe> FOnlineSubsystemPlayFabPtr;

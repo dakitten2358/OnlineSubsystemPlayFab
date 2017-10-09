@@ -252,8 +252,8 @@ PACKAGE_SCOPE:
 	/** Current search start time. */
 	double SessionSearchStartInSeconds;
 
-	FOnlineSessionPlayFab(class FOnlineSubsystemPlayFab* InSubsystem) :
-		PlayFabSubsystem(InSubsystem),
+	FOnlineSessionPlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem) :
+		PlayFabSubsystem(InPlayFabSubsystem),
 		CurrentSessionSearch(NULL),
 		SessionSearchStartInSeconds(0)
 	{}

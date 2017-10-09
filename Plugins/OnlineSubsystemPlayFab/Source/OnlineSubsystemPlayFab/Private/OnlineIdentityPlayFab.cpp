@@ -84,11 +84,7 @@ bool FOnlineIdentityPlayFab::Login(int32 LocalUserNum, const FOnlineAccountCrede
 			InfoRequestParameters->GetUserAccountInfo = true;
 			InfoRequestParameters->GetUserData = true;
 
-#if WITH_DEV_AUTOMATION_TESTS
-			if (AccountCredentials.Type == "playfab" || AccountCredentials.Type == "epic") // OSS tests use "epic", add support for automated testing
-#else
 			if (AccountCredentials.Type == "playfab")
-#endif // WITH_DEV_AUTOMATION_TESTS
 			{
 				PlayFab::ClientModels::FLoginWithPlayFabRequest Request;
 				Request.Username = AccountCredentials.Id;
@@ -397,7 +393,9 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 		FString XmppHost;
 		GConfig->GetString(TEXT("OnlineSubsystemPlayFab"), TEXT("XmppHost"), XmppHost, GEngineIni);
 		ServerRequest.ServerAddr = XmppHost;
-		ServerRequest.bUseSSL = false; // This is me avoiding dealing with certificates
+		bool bXmppSSL = false;
+		GConfig->GetBool(TEXT("OnlineSubsystemPlayFab"), TEXT("bXmppSSL"), bXmppSSL, GEngineIni);
+		ServerRequest.bUseSSL = bXmppSSL; // This is me avoiding dealing with certificates
 		ServerRequest.bUsePlainTextAuth = true; // Prosody mod_auth_external only accepts sasl plain_auth!
 		ServerRequest.Platform = FPlatformProperties::IniPlatformName();
 		XmppConnection->SetServer(ServerRequest);

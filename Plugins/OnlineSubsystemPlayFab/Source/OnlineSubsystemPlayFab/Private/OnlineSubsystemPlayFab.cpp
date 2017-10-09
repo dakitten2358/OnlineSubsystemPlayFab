@@ -31,6 +31,8 @@
 
 #define LOCTEXT_NAMESPACE "FOnlineSubsystemPlayFab" 
 
+TMap<int32, PlayFabClientPtr> FOnlineSubsystemPlayFab::PlayFabClientPtrs = TMap<int32, PlayFabClientPtr>();
+
 // ============================
 // ===== Start Interfaces =====
 // ============================
@@ -190,6 +192,15 @@ PlayFabServerPtr FOnlineSubsystemPlayFab::GetServerAPI()
 	PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
 	if (ServerAPI.IsValid())
 	{
+		if (!bAttemptSetSecret)
+		{
+			bAttemptSetSecret = true;
+			FString cmdVal;
+			if (FParse::Value(FCommandLine::Get(), TEXT("title_secret_key"), cmdVal))
+			{
+				ServerAPI->SetDevSecretKey(cmdVal);
+			}
+		}
 		return ServerAPI;
 	}
 
@@ -222,6 +233,7 @@ PlayFabClientPtr FOnlineSubsystemPlayFab::GetClientAPI(int32 LocalUserNum)
 	}
 	else
 	{
+		UE_LOG_ONLINE(Verbose, TEXT("Creating new ClientAPI pointer for LocalUser: %i"), LocalUserNum);
 		Result = MakeShareable(new PlayFab::UPlayFabClientAPI());
 		PlayFabClientPtrs.Add(LocalUserNum, Result);
 	}
@@ -241,6 +253,8 @@ FOnlineSubsystemPlayFab* FOnlineSubsystemPlayFab::GetPlayFabSubsystem(IOnlineSub
 
 bool FOnlineSubsystemPlayFab::Init()
 {
+	UE_LOG_ONLINE(VeryVerbose, TEXT("PlayFab Subsystem Initializing"));
+
 	// Create the online async task thread
 	OnlineAsyncTaskThreadRunnable = new FOnlineAsyncTaskManagerPlayFab(this);
 	check(OnlineAsyncTaskThreadRunnable);
@@ -265,10 +279,11 @@ bool FOnlineSubsystemPlayFab::Init()
 	TimeInterface = MakeShareable(new FOnlineTimePlayFab(this));
 	UserInterface = MakeShareable(new FOnlineUserPlayFab(this));
 
+	bAttemptSetSecret = false;
 	FString cmdVal;
 	if (FParse::Value(FCommandLine::Get(), TEXT("title_secret_key"), cmdVal)) {
 		/*UE_LOG_ONLINE(Verbose, TEXT("Secret key provided by command line: %s"), *cmdVal);
-		PlayFabServerPtr ServerAPI = GetServerAPI();
+		PlayFabServerPtr ServerAPI = IPlayFabModuleInterface::Get().GetServerAPI();
 		if (ServerAPI.IsValid())
 		{
 			ServerAPI->SetDevSecretKey(cmdVal);
