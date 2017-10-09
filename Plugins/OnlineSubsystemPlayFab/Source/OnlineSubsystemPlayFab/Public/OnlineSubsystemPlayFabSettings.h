@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 
-/* PlayFab server id */
+/* Server's Name */
+#define SETTING_SERVERNAME FName(TEXT("SERVERNAME"))
+/* PlayFab server id(For matchmaking a specific instance) */
 #define SETTING_LOBBYID FName(TEXT("LOBBYID"))
 /* PlayFab friendly GameMode name */
 #define SETTING_GAMENAME FName(TEXT("GAMENAME"))

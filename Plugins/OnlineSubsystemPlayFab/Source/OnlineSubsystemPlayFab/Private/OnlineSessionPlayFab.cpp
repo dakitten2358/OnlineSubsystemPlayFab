@@ -107,6 +107,7 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayF
 			// Right now we're only doing dedi servers, so... no owner(for now)
 			//NewSession->OwningUserId = MakeShareable(new FUniqueNetIdPlayFabId(""));
 			//NewSession->OwningUserName =
+
 			/** Available Slots */
 			NewSession->NumOpenPrivateConnections = 0;
 			NewSession->NumOpenPublicConnections = GameInfo.MaxPlayers - GameInfo.PlayerUserIds.Num();
@@ -127,6 +128,8 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayF
 			TSharedPtr<FJsonObject> JsonObj;
 			if (FJsonSerializer::Deserialize(Reader, JsonObj))
 			{
+				JsonObj->TryGetStringField(SETTING_SERVERNAME.ToString(), NewSession->OwningUserName);
+
 				// Read all the data
 				SessionSettings.bAllowInvites = JsonObj->GetBoolField("bAllowInvites");
 				SessionSettings.bAllowJoinInProgress = JsonObj->GetBoolField("bAllowJoinInProgress");
@@ -213,7 +216,7 @@ void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError&
 
 void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName)
 {
-	UE_LOG_ONLINE(Error, TEXT("PlayFabClient: Function \"%s\" error: %s"), *FunctionName.ToString(), *ErrorResult.ErrorMessage);
+	UE_LOG_ONLINE(Error, TEXT("PlayFabClient: Function \"%s\" error: %s"), *FunctionName.ToString(), *ErrorResult.GenerateErrorReport());
 
 	if (FunctionName == "GetCurrentGames")
 	{
@@ -518,7 +521,7 @@ bool FOnlineSessionPlayFab::CreateSession(int32 HostingPlayerNum, FName SessionN
 		if (!Session->OwningUserId.IsValid())
 		{
 			Session->OwningUserId = MakeShareable(new FUniqueNetIdPlayFabId(FString::Printf(TEXT("%d"), HostingPlayerNum)));
-			Session->OwningUserName = FString(TEXT("PlayFabUser"));
+			Session->OwningUserName = FString(TEXT(""));
 		}
 
 		// Unique identifier of this build for compatibility
@@ -582,6 +585,8 @@ uint32 FOnlineSessionPlayFab::CreateInternetSession(int32 HostingPlayerNum, clas
 
 			if (ServerAPI.IsValid())
 			{
+				Session->SessionSettings.Get(SETTING_SERVERNAME, Session->OwningUserName);
+
 				FString cmdVal;
 				if (FParse::Value(FCommandLine::Get(), TEXT("game_id"), cmdVal))
 				{
@@ -1150,6 +1155,8 @@ bool FOnlineSessionPlayFab::StartMatchmaking(const TArray< TSharedRef<const FUni
 			Request.StartNewIfNoneFound = OutBool;
 		}
 
+		// TODO: Add filters
+
 		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FMatchmakeDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake, SessionName);
 		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client, FName("Matchmake"), SessionName);
 		ClientAPI->Matchmake(Request, SuccessDelegate, ErrorDelegate);
@@ -1352,10 +1359,18 @@ uint32 FOnlineSessionPlayFab::FindInternetSession(int32 SearchingPlayerNum, cons
 			}
 			*/
 		}
-
-		Request.TagFilter = MakeShareable(new PlayFab::ClientModels::FCollectionFilter);
-		Request.TagFilter->Excludes.Add(ExcludesDictionary);
-		Request.TagFilter->Includes.Add(IncludesDictionary);
+		if (ExcludesDictionary.Data.Num() > 0 || IncludesDictionary.Data.Num() > 0)
+		{
+			Request.TagFilter = MakeShareable(new PlayFab::ClientModels::FCollectionFilter);
+			if (ExcludesDictionary.Data.Num() > 0)
+			{
+				Request.TagFilter->Excludes.Add(ExcludesDictionary);
+			}
+			else if (IncludesDictionary.Data.Num() > 0)
+			{
+				Request.TagFilter->Includes.Add(IncludesDictionary);
+			}
+		}
 
 		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetCurrentGamesDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames);
 		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Client, FName("GetCurrentGames"));
