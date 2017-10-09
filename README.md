@@ -74,6 +74,7 @@ Don't use [eJabberd](https://www.ejabberd.im/), they don't play well with Jingle
 [OnlineSubsystemPlayFab]
 bEnable=true
 bEnableXmpp=true
+bXmppSSL=false
 XmppPort=5222
 XmppHost=192.168.0.1
 ```
