@@ -338,7 +338,7 @@ void FOnlineIdentityPlayFab::GetUserPrivilege(const FUniqueNetId& UserId, EUserP
 	Delegate.ExecuteIfBound(UserId, Privilege, (uint32)EPrivilegeResults::NoFailures);
 }
 
-FPlatformUserId FOnlineIdentityPlayFab::GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId)
+FPlatformUserId FOnlineIdentityPlayFab::GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId) const
 {
 	for (int i = 0; i < MAX_LOCAL_PLAYERS; ++i)
 	{
@@ -355,6 +355,11 @@ FPlatformUserId FOnlineIdentityPlayFab::GetPlatformUserIdFromUniqueNetId(const F
 FString FOnlineIdentityPlayFab::GetAuthType() const
 {
 	return TEXT("PlayFab");
+}
+
+void FOnlineIdentityPlayFab::RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate)
+{
+	//Delegate.ExecuteIfBound(UserId, )
 }
 
 void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels::FLoginResult& Result, int32 LocalUserNum)

@@ -99,25 +99,7 @@ TSharedPtr<IGroupRosterPlayFab> IGroupInfoPlayFab::GetRoster() const
 /************************/
 void FOnlineGroupsPlayFab::CreateGroup(const FUniqueNetId& ContextUserId, const FGroupDisplayInfo& GroupInfo, const FOnGroupsRequestCompleted& OnCompleted)
 {
-	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(ContextUserId);
-	if (ClientAPI.IsValid())
-	{
-		PlayFab::ClientModels::FCreateSharedGroupRequest Request;
-		TSharedPtr<FUniqueNetId> GroupId = MakeShareable(new FUniqueNetIdPlayFabId(ContextUserId.ToString()));
-		Request.SharedGroupId = GroupId->ToString();
-
-		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FCreateSharedGroupDelegate::CreateRaw(this, &FOnlineGroupsPlayFab::OnSuccessCallback_Client_CreateSharedGroup, GroupId, OnCompleted);
-		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineGroupsPlayFab::OnErrorCallback_Client_CreateSharedGroup, GroupId, OnCompleted);
-
-		ClientAPI->CreateSharedGroup(Request, SuccessDelegate, ErrorDelegate);
-	}
-	else
-	{
-		UE_LOG_ONLINE(Error, TEXT("PlayFab Client Interface not available"));
-
-		FGroupsResult Result;
-		OnCompleted.Execute(Result);
-	}
+	
 }
 
 void FOnlineGroupsPlayFab::FindGroups(const FUniqueNetId& ContextUserId, const FGroupSearchOptions& SearchOptions, const FOnFindGroupsCompleted& OnCompleted)
@@ -130,42 +112,11 @@ void FOnlineGroupsPlayFab::FindGroups(const FUniqueNetId& ContextUserId, const F
 
 void FOnlineGroupsPlayFab::QueryGroupInfo(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted)
 {
-	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(ContextUserId);
-	if (ClientAPI.IsValid())
-	{
-		PlayFab::ClientModels::FGetSharedGroupDataRequest Request;
-		TSharedPtr<FUniqueNetId> PGroupId = MakeShareable(new FUniqueNetIdString(GroupId.ToString()));
-		Request.SharedGroupId = PGroupId->ToString();
-		Request.GetMembers = true;
-		// Don't set Request.Keys so we get all the data about the group
-		/*Request.Keys.Add("Name");
-		Request.Keys.Add("Description");
-		Request.Keys.Add("Motto");
-		Request.Keys.Add("InviteOnly");
-		Request.Keys.Add("Language");
-		Request.Keys.Add("OwnerId");*/
-
-		auto SuccessDelegate = PlayFab::UPlayFabClientAPI::FGetSharedGroupDataDelegate::CreateRaw(this, &FOnlineGroupsPlayFab::OnSuccessCallback_Client_GetSharedGroupData, PGroupId, OnCompleted);
-		auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineGroupsPlayFab::OnErrorCallback_Client_GetSharedGroupData, PGroupId, OnCompleted);
-
-		ClientAPI->GetSharedGroupData(Request, SuccessDelegate, ErrorDelegate);
-	}
-	else
-	{
-		UE_LOG_ONLINE(Error, TEXT("PlayFab Client Interface not available"));
-
-		FGroupsResult Result;
-		OnCompleted.Execute(Result);
-	}
+	
 }
 
 TSharedPtr<const IGroupInfo> FOnlineGroupsPlayFab::GetCachedGroupInfo(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId)
 {
-	TSharedPtr<IGroupInfoPlayFab>* GroupInfo = GroupsCache.Find(GroupId.ToString());
-	if (GroupInfo != nullptr)
-	{
-		return *GroupInfo;
-	}
 	return nullptr;
 }
 
@@ -196,16 +147,11 @@ void FOnlineGroupsPlayFab::DeclineInvite(const FUniqueNetId& ContextUserId, cons
 
 void FOnlineGroupsPlayFab::QueryGroupRoster(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted)
 {
-	QueryGroupInfo(ContextUserId, GroupId, OnCompleted);
+	
 }
 
 TSharedPtr<const IGroupRoster> FOnlineGroupsPlayFab::GetCachedGroupRoster(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId)
 {
-	TSharedPtr<IGroupInfoPlayFab>* GroupInfo = GroupsCache.Find(GroupId.ToString());
-	if (GroupInfo != nullptr)
-	{
-		return GroupInfo->Get()->GetRoster();
-	}
 	return nullptr;
 }
 
@@ -362,54 +308,4 @@ void FOnlineGroupsPlayFab::SetNamespace(const FString& Ns)
 const FString& FOnlineGroupsPlayFab::GetNamespace() const
 {
 	return Namespace;
-}
-
-void FOnlineGroupsPlayFab::OnSuccessCallback_Client_CreateSharedGroup(const PlayFab::ClientModels::FCreateSharedGroupResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted)
-{
-	FGroupsResult GroupResult = FGroupsResult(200, MakeShareable(new FUniqueNetIdString(Result.SharedGroupId)));
-	OnCompleted.ExecuteIfBound(GroupResult);
-}
-
-void FOnlineGroupsPlayFab::OnErrorCallback_Client_CreateSharedGroup(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted)
-{
-	FGroupsResult GroupResult = FGroupsResult(0, GroupId);
-	GroupResult.ErrorContent = ErrorResult.ErrorMessage;
-	OnCompleted.ExecuteIfBound(GroupResult);
-}
-
-void FOnlineGroupsPlayFab::OnSuccessCallback_Client_GetSharedGroupData(const PlayFab::ClientModels::FGetSharedGroupDataResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted)
-{
-	FGroupDisplayInfo GroupDisplayInfo;
-	GroupDisplayInfo.Name = FText::FromString(Result.Data["Name"].Value);
-	GroupDisplayInfo.Description = FText::FromString(Result.Data["Description"].Value);
-	GroupDisplayInfo.Motto = FText::FromString(Result.Data["Motto"].Value);
-	GroupDisplayInfo.InviteOnly = Result.Data["InviteOnly"].Value.ToBool();
-	GroupDisplayInfo.Language = Result.Data["Language"].Value;
-
-	TSharedPtr<FUniqueNetId> OwnerId = MakeShareable(new FUniqueNetIdPlayFabId(Result.Data["OwnerId"].Value));
-
-	TArray<FGroupMember*> Members;
-	for (FString MemberId : Result.Members)
-	{
-		FGroupMember Member;
-		Member.AccountId = MakeShareable(new FUniqueNetIdPlayFabId(MemberId));
-		Member.bAdmin = false;
-		Member.bIsOwner = false;
-		Members.Add(&Member);
-	}
-	TSharedRef<IGroupRosterPlayFab> Roster = MakeShareable(new IGroupRosterPlayFab(GroupId.ToSharedRef(), Members));
-
-	TSharedPtr<IGroupInfoPlayFab> GroupInfo = MakeShareable(new IGroupInfoPlayFab(GroupId->AsShared(), OwnerId->AsShared(), GroupDisplayInfo, Result.Data, Roster));
-
-	GroupsCache.Add(GroupId->ToString(), GroupInfo);
-
-	FGroupsResult GroupResult = FGroupsResult(200, GroupId);
-	OnCompleted.ExecuteIfBound(GroupResult);
-}
-
-void FOnlineGroupsPlayFab::OnErrorCallback_Client_GetSharedGroupData(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted)
-{
-	FGroupsResult GroupResult = FGroupsResult(0, GroupId);
-	GroupResult.ErrorContent = ErrorResult.ErrorMessage;
-	OnCompleted.ExecuteIfBound(GroupResult);
 }

@@ -127,8 +127,8 @@ PACKAGE_SCOPE:
 		, TimeInterface(NULL)
 		, UserInterface(NULL)
 		//, VoiceInterface(NULL)
-		//, OnlineAsyncTaskThreadRunnable(NULL)
-		//, OnlineAsyncTaskThread(NULL)
+		, OnlineAsyncTaskThreadRunnable(NULL)
+		, OnlineAsyncTaskThread(NULL)
     {}
 
     FOnlineSubsystemPlayFab()
@@ -147,8 +147,8 @@ PACKAGE_SCOPE:
 		, TimeInterface(NULL)
 		, UserInterface(NULL)
 		//, VoiceInterface(NULL)
-		//, OnlineAsyncTaskThreadRunnable(NULL)
-		//, OnlineAsyncTaskThread(NULL)
+		, OnlineAsyncTaskThreadRunnable(NULL)
+		, OnlineAsyncTaskThread(NULL)
     {}
 
 private:

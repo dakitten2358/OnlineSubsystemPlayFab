@@ -142,12 +142,6 @@ public:
 	virtual void DeleteGroup(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) override;
 	virtual void SetNamespace(const FString& Ns) override;
 	virtual const FString& GetNamespace() const override;
-
-private:
-	void OnSuccessCallback_Client_CreateSharedGroup(const PlayFab::ClientModels::FCreateSharedGroupResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
-	void OnErrorCallback_Client_CreateSharedGroup(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
-	void OnSuccessCallback_Client_GetSharedGroupData(const PlayFab::ClientModels::FGetSharedGroupDataResult& Result, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
-	void OnErrorCallback_Client_GetSharedGroupData(const PlayFab::FPlayFabError& ErrorResult, TSharedPtr<FUniqueNetId> GroupId, const FOnGroupsRequestCompleted OnCompleted);
 };
 
 typedef TSharedPtr<FOnlineGroupsPlayFab, ESPMode::ThreadSafe> FOnlineGroupsPlayFabPtr;

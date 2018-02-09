@@ -22,6 +22,39 @@
 #include "Core/PlayFabMatchmakerDataModels.h"
 
 
+FString FOnlineAsyncTaskPingServer::ToString() const
+{
+	return FString::Printf(TEXT("FOnlineAsyncTaskPingServer bWasSuccessful: %d"), bWasSuccessful);
+}
+
+bool FOnlineAsyncTaskPingServer::IsDone()
+{
+	return bIsComplete;
+}
+
+bool FOnlineAsyncTaskPingServer::WasSuccessful()
+{
+	return bWasSuccessful;
+}
+
+void FOnlineAsyncTaskPingServer::Tick()
+{
+	if (bInit)
+	{
+		bInit = true;
+		for (FString TargetHost : TargetHosts)
+		{
+			auto Delegate = FIcmpEchoResultDelegate::CreateRaw(this, &FOnlineAsyncTaskPingServer::ServerPingResult, TargetHost);
+			FIcmp::IcmpEcho(TargetHost, 2.0f, Delegate); // the ICMP module will only handle one at a time
+		}
+	}
+}
+
+void FOnlineAsyncTaskPingServer::ServerPingResult(FIcmpEchoResult Result, FString Host)
+{
+	
+}
+
 FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType)
 	: HostAddr(NULL)
 	, SessionId(TEXT("INVALID"))
@@ -422,20 +455,6 @@ void FOnlineSessionPlayFab::PlayerLeft(const FUniqueNetId& PlayerId, FName Sessi
 			}
 		}
 	}
-}
-
-FOnlineSessionPlayFab* FOnlineSessionPlayFab::GetOnlineSessionPlayFab(IOnlineSubsystem* Subsystem)
-{
-	IOnlineSessionPtr SessionInt = Subsystem->GetSessionInterface();
-	if (SessionInt.IsValid())
-	{
-		FOnlineSessionPlayFab* PlayFabSessionInt = static_cast<FOnlineSessionPlayFab*>(SessionInt.Get());
-		if (PlayFabSessionInt)
-		{
-			return PlayFabSessionInt;
-		}
-	}
-	return nullptr;
 }
 
 bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString SessionTicket, bool bIsMatchmakeTicket)

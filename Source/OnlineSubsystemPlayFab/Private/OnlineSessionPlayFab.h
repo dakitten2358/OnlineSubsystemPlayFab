@@ -8,11 +8,41 @@
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "OnlineSessionSettings.h"
 #include "OnlineSubsystemUtils.h"
+#include "OnlineAsyncTaskManager.h"
+#include "Icmp.h"
 #include "TimerManager.h"
 #include "Core/PlayFabServerAPI.h"
 #include "Core/PlayFabClientAPI.h"
 #include "Core/PlayFabServerDataModels.h"
 #include "Core/PlayFabClientDataModels.h"
+
+class FOnlineAsyncTaskPingServer : FOnlineAsyncTask
+{
+private:
+	TArray<FString> TargetHosts;
+	TSharedPtr<FOnlineSessionSearch> SessionSearch;
+	bool bInit;
+	bool bWasSuccessful;
+	bool bIsComplete;
+
+public:
+	FOnlineAsyncTaskPingServer(TArray<FString> InTargetHosts, TSharedPtr<FOnlineSessionSearch> InSessionSearch)
+		: TargetHosts(InTargetHosts)
+		, SessionSearch(InSessionSearch)
+		, bInit(false)
+		, bIsComplete(false)
+		, bWasSuccessful(false)
+	{
+
+	}
+
+	virtual FString ToString() const override;
+	virtual bool IsDone() override;
+	virtual bool WasSuccessful() override;
+	virtual void Tick() override;
+
+	void ServerPingResult(FIcmpEchoResult Result, FString Host);
+};
 
 /**
 * Delegate fired when a player is authenicated(or not)
@@ -359,8 +389,6 @@ public:
 
 		return false;
 	}
-
-	static FOnlineSessionPlayFab* GetOnlineSessionPlayFab(IOnlineSubsystem* Subsystem);
 
 	/**
 	 * Begins authentication of the player specified

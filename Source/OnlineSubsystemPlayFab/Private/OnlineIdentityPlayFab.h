@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "OnlineIdentityInterface.h"
 #include "OnlineSubsystemPlayFabPackage.h"
+#include "OnlineSubsystemPlayFabTypes.h"
 #include "Core/PlayFabClientAPI.h"
 #include "Core/PlayFabClientDataModels.h"
 
@@ -109,8 +110,9 @@ public:
 	virtual FString GetPlayerNickname(const FUniqueNetId& UserId) const override;
 	virtual FString GetAuthToken(int32 LocalUserNum) const override;
 	virtual void GetUserPrivilege(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, const FOnGetUserPrivilegeCompleteDelegate& Delegate) override;
-	virtual FPlatformUserId GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId) override;
+	virtual FPlatformUserId GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId) const override;
 	virtual FString GetAuthType() const override;
+	virtual void RevokeAuthToken(const FUniqueNetId& UserId, const FOnRevokeAuthTokenCompleteDelegate& Delegate) override;
 
 private:
 	void OnSuccessCallback_Login(const PlayFab::ClientModels::FLoginResult& Result, int32 LocalUserNum);
