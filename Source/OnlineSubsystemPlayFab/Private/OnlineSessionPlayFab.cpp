@@ -457,13 +457,18 @@ void FOnlineSessionPlayFab::PlayerLeft(const FUniqueNetId& PlayerId, FName Sessi
 	}
 }
 
-bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString SessionTicket, bool bIsMatchmakeTicket)
+bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString AuthTicket, bool bIsMatchmakeTicket)
 {
 	uint32 Result = E_FAIL;
 
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	if (Session)
 	{
+		if (AuthTicket.IsEmpty())
+		{
+			// No ticket, no admittance
+			TriggerOnAuthenticatePlayerCompleteDelegates(PlayerId, false);
+		}
 		FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
 
 		bool bUsesCustomMatchmaker = false;
@@ -473,6 +478,7 @@ bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FNa
 		{
 			// Right now, matchmaker API doesn't actually do shit without a direct connection...
 			Result = ERROR_SUCCESS;
+			TriggerOnAuthenticatePlayerCompleteDelegates(PlayerId, true);
 		}
 		else
 		{
@@ -481,11 +487,14 @@ bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FNa
 			{
 				TSharedRef<FUniqueNetId> PlayerIdRef = MakeShareable(new FUniqueNetIdPlayFabId(PlayerId));
 
+				// Honestly, no need to authenticate both. If there is a matchmaker ticket, they are valid
+				// only up to 2 minutes or so, versus session tickets being 24 hrs.
+				// so it's technically more reliable to authenticate via the matchmake ticket.
 				if (bIsMatchmakeTicket)
 				{
 					PlayFab::ServerModels::FRedeemMatchmakerTicketRequest Request;
 					Request.LobbyId = SessionInfo->SessionId.ToString();
-					Request.Ticket = SessionTicket;
+					Request.Ticket = AuthTicket;
 
 					auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FRedeemMatchmakerTicketDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_RedeemMatchmakerTicket, FName(*Session->SessionName.ToString()));
 					auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("RedeemMatchmakerTicket"), FName(*Session->SessionName.ToString()), PlayerIdRef);
@@ -494,7 +503,7 @@ bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FNa
 				else
 				{
 					PlayFab::ServerModels::FAuthenticateSessionTicketRequest Request;
-					Request.SessionTicket = SessionTicket;
+					Request.SessionTicket = AuthTicket;
 
 					auto SuccessDelegate = PlayFab::UPlayFabServerAPI::FAuthenticateSessionTicketDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnSuccessCallback_Server_AuthenticateSessionTicket, FName(*Session->SessionName.ToString()));
 					auto ErrorDelegate = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSessionPlayFab::OnErrorCallback_Server, FName("AuthenticateSessionTicket"), FName(*Session->SessionName.ToString()), PlayerIdRef);

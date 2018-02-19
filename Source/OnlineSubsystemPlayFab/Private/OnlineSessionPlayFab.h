@@ -397,12 +397,12 @@ public:
 	 *
 	 * @param PlayerId the id to authenticate
 	 * @param SessionName the name to use for this session so that multiple sessions can exist at the same time
-	 * @param SessionTicket the authorization ticket
-	 * @param bIsMatchmakeTicket is the ticket from a Client/Matchmake call
+	 * @param AuthTicket the authorization ticket
+	 * @param bIsMatchmakeTicket whether the ticket is from a Client/Matchmake call
 	 *
 	 * @return true if successfully authenticating the player, false otherwise
 	 */
-	bool AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString SessionTicket, bool bIsMatchmakeTicket);
+	bool AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString AuthTicket, bool bIsMatchmakeTicket);
 
 	/**
 	 * Delegate fired when a session create request has completed

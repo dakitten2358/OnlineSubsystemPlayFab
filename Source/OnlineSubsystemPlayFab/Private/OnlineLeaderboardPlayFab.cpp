@@ -108,8 +108,7 @@ bool FOnlineLeaderboardsPlayFab::ReadLeaderboardsAroundUser(TSharedRef<const FUn
 
 void FOnlineLeaderboardsPlayFab::FreeStats(FOnlineLeaderboardRead& ReadObject)
 {
-	// No idea what this is for yet
-	// Maybe to delete currently cached changes?
+	// No idea what this is for yet, at all.
 }
 
 bool FOnlineLeaderboardsPlayFab::WriteLeaderboards(const FName& SessionName, const FUniqueNetId& Player, FOnlineLeaderboardWrite& WriteObject)

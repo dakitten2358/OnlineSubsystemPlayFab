@@ -69,6 +69,7 @@ public:
 	virtual bool Tick(float DeltaTime) override;
 
 	// Performs checks to make sure the PlayFab Server API is valid and setup, otherwise returns nullptr
+	// Prevent clients from calling server api calls without secret key
 	PlayFabServerPtr GetServerAPI();
 
 	PlayFabClientPtr GetClientAPI();
@@ -76,6 +77,10 @@ public:
 	PlayFabClientPtr GetClientAPI(const FUniqueNetId& UserId);
 
 	static FOnlineSubsystemPlayFab* GetPlayFabSubsystem(IOnlineSubsystem* Subsystem);
+
+	// FOnlineSessionPlayFab accessors
+	bool AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString AuthTicket, bool bIsMatchmakeTicket);
+	FOnAuthenticatePlayerComplete GetAuthenticatePlayerDelegate();
 
     virtual bool Init() override;
     virtual bool Shutdown() override;
