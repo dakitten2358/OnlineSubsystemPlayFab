@@ -1132,7 +1132,7 @@ bool FOnlineSessionPlayFab::StartMatchmaking(const TArray< TSharedRef<const FUni
 		FString OutValue;
 		bool OutBool;
 		// Lobby Id or...
-		if (SearchSettings->QuerySettings.Get(SETTING_LOBBYID, OutValue))
+		if (SearchSettings->QuerySettings.Get(SETTING_MATCHING_LOBBYID, OutValue))
 		{
 			Request.LobbyId = OutValue;
 		}
