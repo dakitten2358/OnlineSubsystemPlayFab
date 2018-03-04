@@ -80,7 +80,7 @@ public:
 
 	// FOnlineSessionPlayFab accessors
 	bool AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString AuthTicket, bool bIsMatchmakeTicket);
-	FOnAuthenticatePlayerComplete GetAuthenticatePlayerDelegate();
+	//FOnAuthenticatePlayerComplete GetAuthenticatePlayerDelegate();
 
     virtual bool Init() override;
     virtual bool Shutdown() override;

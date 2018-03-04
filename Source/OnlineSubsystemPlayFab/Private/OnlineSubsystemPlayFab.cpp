@@ -253,14 +253,14 @@ FOnlineSubsystemPlayFab* FOnlineSubsystemPlayFab::GetPlayFabSubsystem(IOnlineSub
 
 bool FOnlineSubsystemPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString AuthTicket, bool bIsMatchmakeTicket)
 {
-	return SessionInterface->AuthenticatePlayer(PlayerId, SessionName, AuthTicket)
+	return SessionInterface->AuthenticatePlayer(PlayerId, SessionName, AuthTicket, bIsMatchmakeTicket);
 }
-
+/*
 FOnAuthenticatePlayerComplete FOnlineSubsystemPlayFab::GetAuthenticatePlayerDelegate()
 {
 	return SessionInterface->OnAuthenticatePlayerComplete;
 }
-
+*/
 bool FOnlineSubsystemPlayFab::Init()
 {
 	UE_LOG_ONLINE(VeryVerbose, TEXT("PlayFab Subsystem Initializing"));
