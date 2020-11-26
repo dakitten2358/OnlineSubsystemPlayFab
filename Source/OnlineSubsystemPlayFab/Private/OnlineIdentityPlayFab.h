@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "Core/PlayFabClientAPI.h"
@@ -76,16 +76,16 @@ private:
 
 	/** Hidden on purpose */
 	FOnlineIdentityPlayFab()
-		: PlayFabSubsystem(NULL)
-		, bAttemptingLogin(false)
+		: bAttemptingLogin(false)
+		, PlayFabSubsystem(NULL)
 	{
 	}
 
 PACKAGE_SCOPE:
 
 	FOnlineIdentityPlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem)
-		: PlayFabSubsystem(InPlayFabSubsystem)
-		, bAttemptingLogin(false)
+		: bAttemptingLogin(false)
+		, PlayFabSubsystem(InPlayFabSubsystem)
 	{
 	}
 
@@ -116,7 +116,7 @@ public:
 
 private:
 	void OnSuccessCallback_Login(const PlayFab::ClientModels::FLoginResult& Result, int32 LocalUserNum);
-	void OnErrorCallback_Login(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum);
+	void OnErrorCallback_Login(const PlayFab::FPlayFabCppError& ErrorResult, int32 LocalUserNum);
 };
 
 typedef TSharedPtr<FOnlineIdentityPlayFab, ESPMode::ThreadSafe> FOnlineIdentityPlayFabPtr;

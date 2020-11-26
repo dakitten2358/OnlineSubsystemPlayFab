@@ -63,6 +63,7 @@ public:
     virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
 	virtual IOnlineUserPtr GetUserInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const override;
+	virtual IOnlineTournamentPtr GetTournamentInterface() const override;
 
 	void QueueAsyncTask(class FOnlineAsyncTask* AsyncTask);
 
@@ -108,9 +109,11 @@ public:
     * Is the PlayFab API available for use
     * @return true if PlayFab functionality is available, false otherwise
     */
-    bool IsEnabled();
+    virtual bool IsEnabled() const;
 
 	bool IsXmppEnabled();
+
+	static TSharedPtr<FUniqueNetId> CreateUniqueNetIdFromPlayFabID(const FString& PlayFabId);
 
 PACKAGE_SCOPE:
 
@@ -136,31 +139,11 @@ PACKAGE_SCOPE:
 		, OnlineAsyncTaskThread(NULL)
     {}
 
-    FOnlineSubsystemPlayFab()
-		: AchievementsInterface(NULL)
-		, EntitlementsInterface(NULL)
-		, EventsInterface(NULL)
-		, ExternalUIInterface(NULL)
-		, FriendsInterface(NULL)
-		, GroupsInterface(NULL)
-		, IdentityInterface(NULL)
-		, LeaderboardsInterface(NULL)
-		, PresenceInterface(NULL)
-		, SessionInterface(NULL)
-		, SharingInterface(NULL)
-		, StoreInterface(NULL)
-		, TimeInterface(NULL)
-		, UserInterface(NULL)
-		//, VoiceInterface(NULL)
-		, OnlineAsyncTaskThreadRunnable(NULL)
-		, OnlineAsyncTaskThread(NULL)
-    {}
-
 private:
 	/** Interface for achievements */
 	FOnlineAchievementsPlayFabPtr AchievementsInterface;
 	/** Interface to the chat services */
-	FOnlineChatPlayFabPtr ChatInterface;
+	//FOnlineChatPlayFabPtr ChatInterface;
 	/** Interface to the entitlements services */
 	FOnlineEntitlementsPlayFabPtr EntitlementsInterface;
 	/** Interface to the online events services */

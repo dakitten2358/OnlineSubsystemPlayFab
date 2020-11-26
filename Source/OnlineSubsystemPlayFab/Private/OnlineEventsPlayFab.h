@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineEventsInterface.h"
+#include "Interfaces/OnlineEventsInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabServerAPI.h"

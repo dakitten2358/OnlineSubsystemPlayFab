@@ -65,11 +65,15 @@ void FOnlineStorePlayFab::OnSuccessCallback_Client_GetCatalogItems(const PlayFab
 		Obj->ProvidedProductInformation.Add(NewProductInfo);
 	}
 	Obj->ReadState = EOnlineAsyncTaskState::Done;
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	TriggerOnQueryForAvailablePurchasesCompleteDelegates(true);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
-void FOnlineStorePlayFab::OnErrorCallback_Client_GetCatalogItems(const PlayFab::FPlayFabError& ErrorResult, FOnlineProductInformationReadRef* InReadObject)
+void FOnlineStorePlayFab::OnErrorCallback_Client_GetCatalogItems(const PlayFab::FPlayFabCppError& ErrorResult, FOnlineProductInformationReadRef* InReadObject)
 {
 	UE_LOG_ONLINE(Warning, TEXT("%s"), *ErrorResult.ErrorMessage);
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	TriggerOnQueryForAvailablePurchasesCompleteDelegates(false);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }

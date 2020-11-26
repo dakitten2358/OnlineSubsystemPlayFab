@@ -241,7 +241,7 @@ void FOnlineLeaderboardsPlayFab::OnSuccessCallback_Server_GetPlayerStatistics(co
 	TriggerOnLeaderboardReadCompleteDelegates(true);
 }
 
-void FOnlineLeaderboardsPlayFab::OnErrorCallback_GetPlayerStatistics(const PlayFab::FPlayFabError& ErrorResult, TSharedRef<const FUniqueNetId> PlayerId, FOnlineLeaderboardReadRef ReadObject)
+void FOnlineLeaderboardsPlayFab::OnErrorCallback_GetPlayerStatistics(const PlayFab::FPlayFabCppError& ErrorResult, TSharedRef<const FUniqueNetId> PlayerId, FOnlineLeaderboardReadRef ReadObject)
 {
 	ReadObject->ReadState = EOnlineAsyncTaskState::Failed;
 	TriggerOnLeaderboardReadCompleteDelegates(false);
@@ -252,7 +252,7 @@ void FOnlineLeaderboardsPlayFab::OnSuccessCallback_Server_UpdatePlayerStatistics
 	TriggerOnLeaderboardFlushCompleteDelegates(SessionName, true);
 }
 
-void FOnlineLeaderboardsPlayFab::OnErrorCallback_UpdatePlayerStatistics(const PlayFab::FPlayFabError& ErrorResult, FName SessionName)
+void FOnlineLeaderboardsPlayFab::OnErrorCallback_UpdatePlayerStatistics(const PlayFab::FPlayFabCppError& ErrorResult, FName SessionName)
 {
 	TriggerOnLeaderboardFlushCompleteDelegates(SessionName, false);
 }
@@ -272,7 +272,7 @@ void FOnlineLeaderboardsPlayFab::OnSuccessCallback_Client_GetLeaderboardAroundPl
 	TriggerOnLeaderboardReadCompleteDelegates(true);
 }
 
-void FOnlineLeaderboardsPlayFab::OnErrorCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef ReadObject)
+void FOnlineLeaderboardsPlayFab::OnErrorCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::FPlayFabCppError& ErrorResult, FOnlineLeaderboardReadRef ReadObject)
 {
 	UE_LOG_ONLINE(Error, TEXT("FOnlineLeaderboardsPlayFab::GetLeaderboardAroundPlayer: Failed grabbing leaderboard around player: %s"), *ErrorResult.ErrorMessage);
 
@@ -295,7 +295,7 @@ void FOnlineLeaderboardsPlayFab::OnSuccessCallback_Client_GetFriendLeaderboard(c
 	TriggerOnLeaderboardReadCompleteDelegates(true);
 }
 
-void FOnlineLeaderboardsPlayFab::OnErrorCallback_Client_GetFriendLeaderboard(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef ReadObject)
+void FOnlineLeaderboardsPlayFab::OnErrorCallback_Client_GetFriendLeaderboard(const PlayFab::FPlayFabCppError& ErrorResult, FOnlineLeaderboardReadRef ReadObject)
 {
 	UE_LOG_ONLINE(Error, TEXT("FOnlineLeaderboardsPlayFab::GetFriendLeaderboard: Failed grabbing leaderboard around player: %s"), *ErrorResult.ErrorMessage);
 

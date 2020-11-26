@@ -3,7 +3,7 @@
 #pragma once
  
 #include "CoreMinimal.h"
-#include "OnlineSharingInterface.h"
+#include "Interfaces/OnlineSharingInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
@@ -54,7 +54,7 @@ private:
 	PlayFab::UPlayFabClientAPI::FGetTitleNewsDelegate SuccessDelegate_Client_GetTitleNews;
 
 	void OnSuccessCallback_Client_GetTitleNews(const PlayFab::ClientModels::FGetTitleNewsResult& Result, int32 LocalUserNum);
-	void OnErrorCallback_GetTitleNews(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum);
+	void OnErrorCallback_GetTitleNews(const PlayFab::FPlayFabCppError& ErrorResult, int32 LocalUserNum);
 };
 
 typedef TSharedPtr<FOnlineSharingPlayFab, ESPMode::ThreadSafe> FOnlineSharingPlayFabPtr;

@@ -9,8 +9,10 @@
 // Define our own FUniqueNetIds, this way if something changes on UE4 or PlayFab, we can make changes here, instead of also having
 // To update all the files using the FUniqueNetIdString. Just better code, plus when you see FUniqueNetIdPlayFabId vs FUniqueNetIdLobbyId
 // you know specifically what you're looking at(though most of the time it's a FUniqueNetId reference, so, you're still screwed there)
-typedef FUniqueNetIdString FUniqueNetIdPlayFabId;
-typedef FUniqueNetIdString FUniqueNetIdLobbyId;
+static FName NAME_PlayFab = TEXT("PLAYFAB");
+
+TEMP_UNIQUENETIDSTRING_SUBCLASS(FUniqueNetIdPlayFabId, NAME_PlayFab)
+typedef FUniqueNetIdPlayFabId FUniqueNetIdLobbyId;
 
 class FOnlineSubsystemPlayFab;
 

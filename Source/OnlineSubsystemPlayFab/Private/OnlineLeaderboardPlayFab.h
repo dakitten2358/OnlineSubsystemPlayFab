@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineLeaderboardInterface.h"
+#include "Interfaces/OnlineLeaderboardInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
@@ -58,15 +58,15 @@ public:
 
 private:
 	void OnSuccessCallback_Server_GetPlayerStatistics(const PlayFab::ServerModels::FGetPlayerStatisticsResult& Result, TSharedRef<const FUniqueNetId> PlayerId, FOnlineLeaderboardReadRef ReadObject);
-	void OnErrorCallback_GetPlayerStatistics(const PlayFab::FPlayFabError& ErrorResult, TSharedRef<const FUniqueNetId> PlayerId, FOnlineLeaderboardReadRef ReadObject);
+	void OnErrorCallback_GetPlayerStatistics(const PlayFab::FPlayFabCppError& ErrorResult, TSharedRef<const FUniqueNetId> PlayerId, FOnlineLeaderboardReadRef ReadObject);
 
 	void OnSuccessCallback_Server_UpdatePlayerStatistics(const PlayFab::ServerModels::FUpdatePlayerStatisticsResult& Result, FName SessionName);
-	void OnErrorCallback_UpdatePlayerStatistics(const PlayFab::FPlayFabError& ErrorResult, FName SessionName);
+	void OnErrorCallback_UpdatePlayerStatistics(const PlayFab::FPlayFabCppError& ErrorResult, FName SessionName);
 
 	void OnSuccessCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::ClientModels::FGetLeaderboardAroundPlayerResult& Result, FOnlineLeaderboardReadRef ReadObject);
-	void OnErrorCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef ReadObject);
+	void OnErrorCallback_Client_GetLeaderboardAroundPlayer(const PlayFab::FPlayFabCppError& ErrorResult, FOnlineLeaderboardReadRef ReadObject);
 	void OnSuccessCallback_Client_GetFriendLeaderboard(const PlayFab::ClientModels::FGetLeaderboardResult& Result, FOnlineLeaderboardReadRef ReadObject);
-	void OnErrorCallback_Client_GetFriendLeaderboard(const PlayFab::FPlayFabError& ErrorResult, FOnlineLeaderboardReadRef ReadObject);
+	void OnErrorCallback_Client_GetFriendLeaderboard(const PlayFab::FPlayFabCppError& ErrorResult, FOnlineLeaderboardReadRef ReadObject);
 };
 
 typedef TSharedPtr<FOnlineLeaderboardsPlayFab, ESPMode::ThreadSafe> FOnlineLeaderboardsPlayFabPtr;

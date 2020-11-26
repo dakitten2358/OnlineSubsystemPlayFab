@@ -37,7 +37,7 @@ bool FOnlineSharingPlayFab::ReadNewsFeed(int32 LocalUserNum, int32 NumPostsToRea
 		{
 			PlayFab::ClientModels::FGetTitleNewsRequest Request;
 			Request.Count = NumPostsToRead;
-			SuccessDelegate_Client_GetTitleNews.CreateRaw(this, &FOnlineSharingPlayFab::OnSuccessCallback_Client_GetTitleNews, LocalUserNum);
+			SuccessDelegate_Client_GetTitleNews.BindRaw(this, &FOnlineSharingPlayFab::OnSuccessCallback_Client_GetTitleNews, LocalUserNum);
 			PlayFab::FPlayFabErrorDelegate ErrorDelegate_GetTitleNews = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineSharingPlayFab::OnErrorCallback_GetTitleNews, LocalUserNum);
 			ClientAPI->GetTitleNews(Request, SuccessDelegate_Client_GetTitleNews, ErrorDelegate_GetTitleNews);
 			return true;
@@ -95,7 +95,7 @@ void FOnlineSharingPlayFab::OnSuccessCallback_Client_GetTitleNews(const PlayFab:
 	TriggerOnReadNewsFeedCompleteDelegates(LocalUserNum, true);
 }
 
-void FOnlineSharingPlayFab::OnErrorCallback_GetTitleNews(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum)
+void FOnlineSharingPlayFab::OnErrorCallback_GetTitleNews(const PlayFab::FPlayFabCppError& ErrorResult, int32 LocalUserNum)
 {
 	SuccessDelegate_Client_GetTitleNews.Unbind();
 	UE_LOG_ONLINE(Error, TEXT("Failed ReadNewsFeed: %s"), *ErrorResult.GenerateErrorReport())

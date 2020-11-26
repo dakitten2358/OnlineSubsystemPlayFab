@@ -3,7 +3,7 @@
 #pragma once
  
 #include "CoreMinimal.h"
-#include "OnlineSessionInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "OnlineSessionSettings.h"
@@ -30,15 +30,16 @@ public:
 		: TargetHosts(InTargetHosts)
 		, SessionSearch(InSessionSearch)
 		, bInit(false)
-		, bIsComplete(false)
 		, bWasSuccessful(false)
+		, bIsComplete(false)
+		
 	{
 
 	}
 
 	virtual FString ToString() const override;
-	virtual bool IsDone() override;
-	virtual bool WasSuccessful() override;
+	virtual bool IsDone() const override;
+	virtual bool WasSuccessful() const override;
 	virtual void Tick() override;
 
 	void ServerPingResult(FIcmpEchoResult Result, FString Host);
@@ -73,8 +74,8 @@ private:
 
 	void OnSuccessCallback_Client_GetCurrentGames(const PlayFab::ClientModels::FCurrentGamesResult& Result);
 	void OnSuccessCallback_Client_Matchmake(const PlayFab::ClientModels::FMatchmakeResult& Result, FName SessionName);
-	void OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName);
-	void OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName);
+	void OnErrorCallback_Client(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName);
+	void OnErrorCallback_Client(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName, FName SessionName);
 
 	void OnSuccessCallback_Server_RegisterGame(const PlayFab::ServerModels::FRegisterGameResponse& Result, FName SessionName);
 	void OnSuccessCallback_Server_DeregisterGame(const PlayFab::ServerModels::FDeregisterGameResponse& Result, FName SessionName);
@@ -82,8 +83,8 @@ private:
 	void OnSuccessCallback_Server_InstanceData(const PlayFab::ServerModels::FSetGameServerInstanceDataResult& Result, FName SessionName);
 	void OnSuccessCallback_Server_AuthenticateSessionTicket(const PlayFab::ServerModels::FAuthenticateSessionTicketResult& Result, FName SessionName);
 	void OnSuccessCallback_Server_RedeemMatchmakerTicket(const PlayFab::ServerModels::FRedeemMatchmakerTicketResult& Result, FName SessionName);
-	void OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName);
-	void OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName, TSharedRef<FUniqueNetId> PlayerId);
+	void OnErrorCallback_Server(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName, FName SessionName);
+	void OnErrorCallback_Server(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName, FName SessionName, TSharedRef<FUniqueNetId> PlayerId);
 
 	void PlayFab_Server_Heartbeat(FName SessionName);
 
@@ -415,6 +416,7 @@ public:
 	// IOnlineSession
 	virtual bool CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings) override;
 	virtual bool CreateSession(const FUniqueNetId& HostingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings) override;
+	virtual TSharedPtr<const FUniqueNetId> CreateSessionIdFromString(const FString& SessionIdStr) override;
 	virtual bool StartSession(FName SessionName) override;
 	virtual bool UpdateSession(FName SessionName, FOnlineSessionSettings& UpdatedSessionSettings, bool bShouldRefreshOnlineData = true) override;
 	virtual bool EndSession(FName SessionName) override;

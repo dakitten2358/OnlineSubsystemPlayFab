@@ -52,7 +52,7 @@ void FOnlineTimePlayFab::OnSuccessCallback_C_GetTime(const PlayFab::ClientModels
 	TriggerOnQueryServerUtcTimeCompleteDelegates(true, CachedUTC, TEXT(""));
 }
 
-void FOnlineTimePlayFab::OnErrorCallback_GetTime(const PlayFab::FPlayFabError& ErrorResult)
+void FOnlineTimePlayFab::OnErrorCallback_GetTime(const PlayFab::FPlayFabCppError& ErrorResult)
 {
 	bCatchingServerTime = false;
 	TriggerOnQueryServerUtcTimeCompleteDelegates(false, TEXT(""), ErrorResult.ErrorMessage);

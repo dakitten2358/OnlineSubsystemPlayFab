@@ -1,9 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
+#if false
 #include "CoreMinimal.h"
-#include "OnlineChatInterface.h"
+#include "Interfaces/OnlineChatInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "XmppMultiUserChat.h"
@@ -43,12 +43,17 @@ public:
 class FChatRoomMemberPlayFab : public FChatRoomMember
 {
 private:
+#if false
 	FXmppChatMemberPtr XmppMember;
-
+#endif
 	TSharedRef<const FUniqueNetId> UserId;
 
 public:
-	FChatRoomMemberPlayFab(FXmppChatMemberPtr InXmppMember = nullptr);
+	FChatRoomMemberPlayFab(
+#if false
+		FXmppChatMemberPtr InXmppMember = nullptr
+#endif
+	);
 
 	virtual ~FChatRoomMemberPlayFab() {}
 
@@ -62,13 +67,18 @@ public:
 class FChatMessagePlayFab : public FChatMessage
 {
 private:
+#if false
 	TSharedPtr<FXmppChatMessage> XmppMessage;
-
+#endif
 	TSharedRef<const FUniqueNetId> UserId;
 	FString Nickname;
 
 public:
-	FChatMessagePlayFab(TSharedPtr<FXmppChatMessage> InXmppMessage = nullptr);
+	FChatMessagePlayFab(
+#if false
+		TSharedPtr<FXmppChatMessage> InXmppMessage = nullptr
+#endif
+	);
 
 	virtual ~FChatMessagePlayFab() {}
 
@@ -123,14 +133,16 @@ public:
 	virtual bool GetLastMessages(const FUniqueNetId& UserId, const FChatRoomId& RoomId, int32 NumMessages, TArray<TSharedRef<FChatMessage>>& OutMessages) override;
 	virtual void DumpChatState() const override;
 
+#if false
 	virtual void XmppSetupDelegates(const TSharedRef<IXmppConnection> XmppConnection);
 	virtual void XmppClearDelegates(const TSharedRef<IXmppConnection> XmppConnection);
 	virtual void XmppOnRoomChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppRoomId& RoomId, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage);
 	virtual void XmppOnPrivateChatReceived(const TSharedRef<IXmppConnection>& XmppConnection, const FXmppUserJid& UserId, const TSharedRef<FXmppChatMessage>& XmppMessage);
-
+#endif
 protected:
 	FDelegateHandle OnRoomChatReceived;
 	FDelegateHandle OnPrivateChatReceived;
 };
 
 typedef TSharedPtr<FOnlineChatPlayFab, ESPMode::ThreadSafe> FOnlineChatPlayFabPtr;
+#endif

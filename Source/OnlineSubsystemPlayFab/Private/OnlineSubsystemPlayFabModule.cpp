@@ -3,7 +3,7 @@
 #include "OnlineSubsystemPlayFabModule.h"
 #include "OnlineSubsystemPlayFabPrivatePCH.h"
 #include "OnlineSubsystemPlayFab.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PlayFab.h"
 
 IMPLEMENT_MODULE(FOnlineSubsystemPlayFabModule, OnlineSubsystemPlayFab);
@@ -20,7 +20,7 @@ public:
 
 	virtual IOnlineSubsystemPtr CreateSubsystem(FName InstanceName)
 	{
-		FOnlineSubsystemPlayFabPtr OnlineSub = MakeShareable(new FOnlineSubsystemPlayFab());
+		FOnlineSubsystemPlayFabPtr OnlineSub = MakeShareable(new FOnlineSubsystemPlayFab(FName("OnlineSubsystemPlayFab")));
 		if (OnlineSub->IsEnabled())
 		{
 			if (!OnlineSub->Init())

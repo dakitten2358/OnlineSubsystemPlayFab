@@ -1,11 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineChatPlayFab.h"
+#if false
 #include "OnlineSubsystemPlayFab.h"
-#include "OnlineIdentityInterface.h"
-#include "OnlinePresenceInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "PlayFab.h"
-#include "Xmpp.h"
+//#include "Xmpp.h"
 
 
 FChatRoomInfoPlayFab::FChatRoomInfoPlayFab()
@@ -15,16 +16,18 @@ FChatRoomInfoPlayFab::FChatRoomInfoPlayFab()
 
 }
 
+#if false
 FChatRoomInfoPlayFab::FChatRoomInfoPlayFab(FXmppRoomInfo InXmppRoomInfo)
 	: XmppRoomInfo(InXmppRoomInfo)
 	, OwnerId(MakeShareable(new FUniqueNetIdPlayFabId(XmppRoomInfo.OwnerId)))
 {
 	RoomConfig.bPasswordRequired = XmppRoomInfo.bIsPrivate;
 }
-
+#endif
 const FChatRoomId& FChatRoomInfoPlayFab::GetRoomId() const
 {
-	return XmppRoomInfo.Id;
+	static const FChatRoomId defaultRoomId;
+	return defaultRoomId;
 }
 
 const TSharedRef<const FUniqueNetId>& FChatRoomInfoPlayFab::GetOwnerId() const
@@ -34,7 +37,8 @@ const TSharedRef<const FUniqueNetId>& FChatRoomInfoPlayFab::GetOwnerId() const
 
 const FString& FChatRoomInfoPlayFab::GetSubject() const
 {
-	return XmppRoomInfo.Subject;
+	return FString::Empty();
+//	return XmppRoomInfo.Subject;
 }
 
 bool FChatRoomInfoPlayFab::IsPrivate() const
@@ -312,3 +316,4 @@ void FOnlineChatPlayFab::XmppOnPrivateChatReceived(const TSharedRef<IXmppConnect
 {
 	TriggerOnChatPrivateMessageReceivedDelegates(FUniqueNetIdPlayFabId(UserId.Id), MakeShareable(new FChatMessagePlayFab(XmppMessage)));
 }
+#endif

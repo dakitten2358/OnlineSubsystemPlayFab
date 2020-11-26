@@ -158,6 +158,7 @@ bool FOnlineIdentityPlayFab::Logout(int32 LocalUserNum)
 	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
+#if false
 		if (PlayFabSubsystem->IsXmppEnabled())
 		{
 			TSharedRef<IXmppConnection> XmppConnection = FXmppModule::Get().CreateConnection(UserId->ToString());
@@ -165,6 +166,7 @@ bool FOnlineIdentityPlayFab::Logout(int32 LocalUserNum)
 			XmppConnection->Logout();
 			FXmppModule::Get().RemoveConnection(UserId->ToString());
 		}
+#endif
 
 		// remove cached user account
 		UserAccounts.Remove(FUniqueNetIdPlayFabId(*UserId));
@@ -370,8 +372,10 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 	UserAccountPtr = MakeShareable(new FUserOnlineAccountPlayFab(Result.PlayFabId, Result.SessionTicket));
 
 	UserAccountPtr->DisplayName = Result.InfoResultPayload->AccountInfo->TitleInfo->DisplayName;
+	UE_LOG_ONLINE(Log, TEXT("%s: %s"), *Result.PlayFabId, *UserAccountPtr->DisplayName);
 	for (auto Elem : Result.InfoResultPayload->UserData)
 	{
+		UE_LOG_ONLINE(Log, TEXT("Adding user attribute %s: %s"), *Elem.Key, *Elem.Value.Value);
 		UserAccountPtr->UserAttributes.Add(Elem.Key, Elem.Value.Value);
 	}
 
@@ -384,6 +388,7 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 	TriggerOnLoginStatusChangedDelegates(LocalUserNum, ELoginStatus::NotLoggedIn, ELoginStatus::LoggedIn, UserAccountPtr->GetUserId().Get());
 	TriggerOnLoginCompleteDelegates(LocalUserNum, true, UserAccountPtr->GetUserId().Get(), TEXT(""));
 
+#if false
 	if (PlayFabSubsystem->IsXmppEnabled())
 	{
 		TSharedRef<IXmppConnection> XmppConnection = FXmppModule::Get().CreateConnection(UserAccountPtr->GetUserId()->ToString());
@@ -410,9 +415,10 @@ void FOnlineIdentityPlayFab::OnSuccessCallback_Login(const PlayFab::ClientModels
 		FOnlineChatPlayFab* PlayFabChat = static_cast<FOnlineChatPlayFab*>(OnlineChat);
 		PlayFabChat->XmppSetupDelegates(XmppConnection);
 	}
+#endif
 }
 
-void FOnlineIdentityPlayFab::OnErrorCallback_Login(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum)
+void FOnlineIdentityPlayFab::OnErrorCallback_Login(const PlayFab::FPlayFabCppError& ErrorResult, int32 LocalUserNum)
 {
 	bAttemptingLogin = false;
 

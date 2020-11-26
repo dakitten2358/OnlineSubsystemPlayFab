@@ -2,7 +2,7 @@
 
 #include "OnlineFriendsPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "PlayFab.h"
 
 
@@ -123,6 +123,26 @@ bool FOnlineFriendsPlayFab::RejectInvite(int32 LocalUserNum, const FUniqueNetId&
 	return false;
 }
 
+void FOnlineFriendsPlayFab::SetFriendAlias(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName, const FString& Alias, const FOnSetFriendAliasComplete& Delegate)
+{
+	TSharedRef<const FUniqueNetId> FriendIdRef = FriendId.AsShared();
+	PlayFabSubsystem->ExecuteNextTick([LocalUserNum, FriendIdRef, ListName, Delegate]()
+	{
+		UE_LOG_ONLINE(Warning, TEXT("FOnlineFriendsPlayFab::SetFriendAlias is currently not supported"));
+		Delegate.ExecuteIfBound(LocalUserNum, *FriendIdRef, ListName, FOnlineError(EOnlineErrorResult::NotImplemented));
+	});
+}
+
+void FOnlineFriendsPlayFab::DeleteFriendAlias(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName, const FOnDeleteFriendAliasComplete& Delegate)
+{
+	TSharedRef<const FUniqueNetId> FriendIdRef = FriendId.AsShared();
+	PlayFabSubsystem->ExecuteNextTick([LocalUserNum, FriendIdRef, ListName, Delegate]()
+	{
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("FOnlineFriendsPlayFab::DeleteFriendAlias is currently not supported"));
+		Delegate.ExecuteIfBound(LocalUserNum, *FriendIdRef, ListName, FOnlineError(EOnlineErrorResult::NotImplemented));
+	});
+}
+
 bool FOnlineFriendsPlayFab::DeleteFriend(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName)
 {
 	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(LocalUserNum);
@@ -192,6 +212,11 @@ bool FOnlineFriendsPlayFab::GetRecentPlayers(const FUniqueNetId& UserId, const F
 	return false;
 }
 
+void FOnlineFriendsPlayFab::DumpRecentPlayers() const
+{
+
+}
+
 bool FOnlineFriendsPlayFab::BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId)
 {
 	TriggerOnBlockedPlayerCompleteDelegates(LocalUserNum, false, PlayerId, TEXT(""), TEXT("not implemented"));
@@ -228,7 +253,7 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Server_GetFriendsList(const PlayFa
 	{
 		TSharedRef<FOnlineFriendPlayFab> Friend(new FOnlineFriendPlayFab(FriendInfo.FriendPlayFabId));
 		FriendsList.Add(Friend);
-
+#if false
 		if (!FriendInfo.CurrentMatchmakerLobbyId.IsEmpty())
 		{
 			Friend->Presence.SessionId = MakeShareable(new FUniqueNetIdPlayFabId(FriendInfo.CurrentMatchmakerLobbyId));
@@ -240,6 +265,7 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Server_GetFriendsList(const PlayFa
 			Friend->Presence.Status.StatusStr = "Playing Empires";
 		}
 		else
+#endif
 		{
 			Friend->Presence.Status.State = EOnlinePresenceState::Offline;
 			Friend->Presence.Status.StatusStr = "Not playing the game";
@@ -259,6 +285,7 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList(const PlayFa
 		TSharedRef<FOnlineFriendPlayFab> Friend(new FOnlineFriendPlayFab(FriendInfo.FriendPlayFabId));
 		FriendsList.Add(Friend);
 
+#if false
 		if (!FriendInfo.CurrentMatchmakerLobbyId.IsEmpty())
 		{
 			Friend->Presence.SessionId = MakeShareable(new FUniqueNetIdPlayFabId(FriendInfo.CurrentMatchmakerLobbyId));
@@ -270,6 +297,7 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList(const PlayFa
 			Friend->Presence.Status.StatusStr = "Playing";
 		}
 		else
+#endif
 		{
 			Friend->Presence.Status.State = EOnlinePresenceState::Offline;
 			Friend->Presence.Status.StatusStr = "Not playing the game";
@@ -280,7 +308,7 @@ void FOnlineFriendsPlayFab::OnSuccessCallback_Client_GetFriendsList(const PlayFa
 	Delegate.ExecuteIfBound(LocalUserNum, true, ListName, TEXT(""));
 }
 
-void FOnlineFriendsPlayFab::OnErrorCallback_GetFriendsList(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate)
+void FOnlineFriendsPlayFab::OnErrorCallback_GetFriendsList(const PlayFab::FPlayFabCppError& ErrorResult, int32 LocalUserNum, const FString ListName, const FOnReadFriendsListComplete Delegate)
 {
 	Delegate.ExecuteIfBound(LocalUserNum, false, ListName, ErrorResult.ErrorMessage);
 }

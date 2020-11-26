@@ -158,17 +158,18 @@ void FOnlineUserPlayFab::OnSuccessCallback_Server_GetAccountInfo(const PlayFab::
 	TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, true, *UserIds, TEXT(""));
 }
 
-void FOnlineUserPlayFab::OnErrorCallback_GetAccountInfo(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds)
+void FOnlineUserPlayFab::OnErrorCallback_GetAccountInfo(const PlayFab::FPlayFabCppError& ErrorResult, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds)
 {
 	TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, false, *UserIds, ErrorResult.ErrorMessage);
 }
 
 void FOnlineUserPlayFab::OnSuccessCallback_Client_Query_GetAccountInfo(const PlayFab::ClientModels::FGetAccountInfoResult& Result, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate)
 {
+	UE_LOG_ONLINE(Warning, TEXT("FOnlineUserPlayFab::OnSuccessCallback_Client_Query_GetAccountInfo: Not yet implemented"));
 	Delegate.ExecuteIfBound(true, UserId.Get(), DisplayNameOrEmail, FUniqueNetIdPlayFabId(Result.AccountInfo->PlayFabId), TEXT(""));
 }
 
-void FOnlineUserPlayFab::OnErrorCallback_Query_GetAccountInfo(const PlayFab::FPlayFabError& ErrorResult, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate)
+void FOnlineUserPlayFab::OnErrorCallback_Query_GetAccountInfo(const PlayFab::FPlayFabCppError& ErrorResult, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate)
 {
 	Delegate.ExecuteIfBound(false, UserId.Get(), DisplayNameOrEmail, FUniqueNetIdPlayFabId(), ErrorResult.GenerateErrorReport());
 }

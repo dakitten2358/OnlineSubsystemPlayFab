@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineEntitlementsInterface.h"
+#include "Interfaces/OnlineEntitlementsInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabServerAPI.h"
@@ -70,7 +70,7 @@ private:
 	PlayFab::UPlayFabClientAPI::FGetUserInventoryDelegate SuccessDelegate_Client_GetUserInventory;
 	void OnSuccessCallback_Client_GetUserInventory(const PlayFab::ClientModels::FGetUserInventoryResult& Result, const FUniqueNetId* UserId, const FString Namespace);
 	void OnSuccessCallback_Server_GetUserInventory(const PlayFab::ServerModels::FGetUserInventoryResult& Result, const FUniqueNetId* UserId, const FString Namespace);
-	void OnErrorCallback_GetUserInventory(const PlayFab::FPlayFabError& ErrorResult, const FUniqueNetId* UserId, const FString Namespace);
+	void OnErrorCallback_GetUserInventory(const PlayFab::FPlayFabCppError& ErrorResult, const FUniqueNetId* UserId, const FString Namespace);
 };
 
 typedef TSharedPtr<FOnlineEntitlementsPlayFab, ESPMode::ThreadSafe> FOnlineEntitlementsPlayFabPtr;

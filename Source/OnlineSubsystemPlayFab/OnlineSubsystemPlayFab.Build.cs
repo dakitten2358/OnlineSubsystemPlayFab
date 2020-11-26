@@ -10,7 +10,10 @@ public class OnlineSubsystemPlayFab : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        Definitions.Add("ONLINESUBSYSTEMPLAYFAB_PACKAGE=1");
+        PublicDefinitions.Add("ONLINESUBSYSTEMPLAYFAB_PACKAGE=1");
+
+        PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
+        PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Private"));
 
         PrivateDependencyModuleNames.AddRange(
             new string[] {
@@ -18,13 +21,20 @@ public class OnlineSubsystemPlayFab : ModuleRules
 				"CoreUObject",
                 "Engine",
                 "Sockets",
+                "Json",
+                "Icmp",
+                "XMPP",// WANT TO MAKE A NOTE HERE, EPIC GAMES USES "tigase" FOR XMPP SERVER
+                "PlayFab",
+                "PlayFabCpp",
+			}
+        );
+
+        PublicDependencyModuleNames.AddRange(
+            new string[]
+            {
                 "OnlineSubsystem",
                 "OnlineSubsystemUtils",
-                "ICMP",
-                "Json",
-                "XMPP",// WANT TO MAKE A NOTE HERE, EPIC GAMES USES "tigase" FOR XMPP SERVER
-                "PlayFab"
-			}
-            );
+            }
+        );
     }
 }

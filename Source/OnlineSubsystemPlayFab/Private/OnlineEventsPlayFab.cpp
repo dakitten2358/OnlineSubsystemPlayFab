@@ -2,7 +2,7 @@
 
 #include "OnlineEventsPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "PlayFab.h"
 
 
@@ -37,7 +37,7 @@ bool FOnlineEventsPlayFab::TriggerEvent(const FUniqueNetId& PlayerId, const TCHA
 	PlayFabParms.Add("SessionId", SessionId.ToString(EGuidFormats::DigitsWithHyphens));
 	for (auto Elem : Parms)
 	{
-		PlayFab::FJsonKeeper& Var = PlayFabParms.FindOrAdd(Elem.Key.ToString());
+		PlayFab::FJsonKeeper& Var = PlayFabParms.FindOrAdd(Elem.Key);
 		Var = Elem.Value.ToString();
 	}
 

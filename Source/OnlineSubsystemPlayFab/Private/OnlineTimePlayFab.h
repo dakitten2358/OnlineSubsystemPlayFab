@@ -2,7 +2,7 @@
 
 #pragma once
  
-#include "OnlineTimeInterface.h"
+#include "Interfaces/OnlineTimeInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
@@ -25,16 +25,16 @@ private:
 
 	/** Hidden on purpose */
 	FOnlineTimePlayFab()
-		: PlayFabSubsystem(NULL)
-		, bCatchingServerTime(false)
+		: bCatchingServerTime(false)
+		, PlayFabSubsystem(NULL)
 	{
 	}
 
 PACKAGE_SCOPE:
 
 	FOnlineTimePlayFab(class FOnlineSubsystemPlayFab* InPlayFabSubsystem)
-		: PlayFabSubsystem(InPlayFabSubsystem)
-		, bCatchingServerTime(false)
+		: bCatchingServerTime(false)
+		, PlayFabSubsystem(InPlayFabSubsystem)
 	{
 	}
 
@@ -51,7 +51,7 @@ public:
 private:
 	void OnSuccessCallback_S_GetTime(const PlayFab::ServerModels::FGetTimeResult& Result);
 	void OnSuccessCallback_C_GetTime(const PlayFab::ClientModels::FGetTimeResult& Result);
-	void OnErrorCallback_GetTime(const PlayFab::FPlayFabError& ErrorResult);
+	void OnErrorCallback_GetTime(const PlayFab::FPlayFabCppError& ErrorResult);
 };
 
 typedef TSharedPtr<FOnlineTimePlayFab, ESPMode::ThreadSafe> FOnlineTimePlayFabPtr;

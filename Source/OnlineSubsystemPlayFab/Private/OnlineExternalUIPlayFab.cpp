@@ -45,6 +45,11 @@ bool FOnlineExternalUIPlayFab::ShowProfileUI(const FUniqueNetId& Requestor, cons
 	return false;
 }
 
+bool FOnlineExternalUIPlayFab::ShowAccountCreationUI(const int ControllerIndex, const FOnAccountCreationUIClosedDelegate& Delegate)
+{
+	return false;
+}
+
 bool FOnlineExternalUIPlayFab::ShowAccountUpgradeUI(const FUniqueNetId& UniqueId)
 {
 	return false;

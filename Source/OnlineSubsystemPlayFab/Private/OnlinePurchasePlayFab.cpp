@@ -63,7 +63,7 @@ void FOnlinePurchasePlayFab::OnSuccessCallback_Client_RedeemCoupon(const PlayFab
 	Delegate.ExecuteIfBound(Error, Receipt);
 }
 
-void FOnlinePurchasePlayFab::OnErrorCallback_RedeemCoupon(const PlayFab::FPlayFabError& ErrorResult, const FOnPurchaseRedeemCodeComplete Delegate)
+void FOnlinePurchasePlayFab::OnErrorCallback_RedeemCoupon(const PlayFab::FPlayFabCppError& ErrorResult, const FOnPurchaseRedeemCodeComplete Delegate)
 {
 	FOnlineError Error;
 	Error.bSucceeded = false;

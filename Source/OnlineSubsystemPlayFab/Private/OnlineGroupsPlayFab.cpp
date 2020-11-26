@@ -97,6 +97,11 @@ TSharedPtr<IGroupRosterPlayFab> IGroupInfoPlayFab::GetRoster() const
 /************************/
 /* FOnlineGroupsPlayFab */
 /************************/
+void FOnlineGroupsPlayFab::QueryGroupNameExist(const FUniqueNetId& ContextUserId, const FString& GroupName, const FOnGroupsRequestCompleted& OnCompleted)
+{
+
+}
+
 void FOnlineGroupsPlayFab::CreateGroup(const FUniqueNetId& ContextUserId, const FGroupDisplayInfo& GroupInfo, const FOnGroupsRequestCompleted& OnCompleted)
 {
 	
@@ -286,6 +291,11 @@ void FOnlineGroupsPlayFab::QueryConfigMembership(const FUniqueNetId& ContextUser
 }
 
 TSharedPtr<const FGroupConfigEntryInt> FOnlineGroupsPlayFab::GetCachedConfigInt(const FString& Key)
+{
+	return nullptr;
+}
+
+TSharedPtr<const FGroupConfigEntryBool> FOnlineGroupsPlayFab::GetCachedConfigBool(const FString& Key)
 {
 	return nullptr;
 }

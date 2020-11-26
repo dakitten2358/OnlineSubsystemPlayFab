@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlinePurchaseInterface.h"
+#include "Interfaces/OnlinePurchaseInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
@@ -48,7 +48,7 @@ public:
 
 private:
 	void OnSuccessCallback_Client_RedeemCoupon(const PlayFab::ClientModels::FRedeemCouponResult& Result, const FOnPurchaseRedeemCodeComplete Delegate);
-	void OnErrorCallback_RedeemCoupon(const PlayFab::FPlayFabError& ErrorResult, const FOnPurchaseRedeemCodeComplete Delegate);
+	void OnErrorCallback_RedeemCoupon(const PlayFab::FPlayFabCppError& ErrorResult, const FOnPurchaseRedeemCodeComplete Delegate);
 };
 
 typedef TSharedPtr<FOnlinePurchasePlayFab, ESPMode::ThreadSafe> FOnlinePurchasePlayFabPtr;

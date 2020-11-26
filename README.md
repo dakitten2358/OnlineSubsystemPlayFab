@@ -1,3 +1,7 @@
+# About
+
+This project is originally from https://gitlab.com/mtuska/OnlineSubsystemPlayFab by Montana Tuska.
+
 # OnlineSubsystemPlayFab
 This is an Online Subsystem for the Unreal Engine 4, using PlayFab.
 

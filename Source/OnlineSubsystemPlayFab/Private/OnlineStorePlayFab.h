@@ -3,7 +3,7 @@
 #pragma once
  
 #include "CoreMinimal.h"
-#include "OnlineStoreInterface.h"
+#include "Interfaces/OnlineStoreInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
@@ -12,6 +12,7 @@
 /**
 * Interface class for microtransactions
 */
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 class FOnlineStorePlayFab : public IOnlineStore
 {
 private:
@@ -46,7 +47,8 @@ public:
 
 private:
 	void OnSuccessCallback_Client_GetCatalogItems(const PlayFab::ClientModels::FGetCatalogItemsResult& Result, FOnlineProductInformationReadRef* InReadObject);
-	void OnErrorCallback_Client_GetCatalogItems(const PlayFab::FPlayFabError& ErrorResult, FOnlineProductInformationReadRef* InReadObject);
+	void OnErrorCallback_Client_GetCatalogItems(const PlayFab::FPlayFabCppError& ErrorResult, FOnlineProductInformationReadRef* InReadObject);
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 typedef TSharedPtr<FOnlineStorePlayFab, ESPMode::ThreadSafe> FOnlineStorePlayFabPtr;

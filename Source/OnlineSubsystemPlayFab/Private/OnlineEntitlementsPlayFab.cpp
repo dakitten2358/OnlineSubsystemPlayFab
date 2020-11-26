@@ -2,7 +2,7 @@
 
 #include "OnlineEntitlementsPlayFab.h"
 #include "OnlineSubsystemPlayFab.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "PlayFab.h"
 
 
@@ -65,7 +65,7 @@ bool FOnlineEntitlementsPlayFab::QueryEntitlements(const FUniqueNetId& UserId, c
 		}
 		else if (!SuccessDelegate_Client_GetUserInventory.IsBound())
 		{
-			SuccessDelegate_Client_GetUserInventory.CreateRaw(this, &FOnlineEntitlementsPlayFab::OnSuccessCallback_Client_GetUserInventory, &UserId, Namespace);
+			SuccessDelegate_Client_GetUserInventory.BindRaw(this, &FOnlineEntitlementsPlayFab::OnSuccessCallback_Client_GetUserInventory, &UserId, Namespace);
 			PlayFab::FPlayFabErrorDelegate ErrorDelegate_GetUserInventory = PlayFab::FPlayFabErrorDelegate::CreateRaw(this, &FOnlineEntitlementsPlayFab::OnErrorCallback_GetUserInventory, &UserId, Namespace);
 			ClientAPI->GetUserInventory(SuccessDelegate_Client_GetUserInventory, ErrorDelegate_GetUserInventory);
 			return true;
@@ -134,7 +134,7 @@ void FOnlineEntitlementsPlayFab::OnSuccessCallback_Server_GetUserInventory(const
 	TriggerOnQueryEntitlementsCompleteDelegates(true, *UserId, Namespace, TEXT(""));
 }
 
-void FOnlineEntitlementsPlayFab::OnErrorCallback_GetUserInventory(const PlayFab::FPlayFabError& ErrorResult, const FUniqueNetId* UserId, const FString Namespace)
+void FOnlineEntitlementsPlayFab::OnErrorCallback_GetUserInventory(const PlayFab::FPlayFabCppError& ErrorResult, const FUniqueNetId* UserId, const FString Namespace)
 {
 	SuccessDelegate_Client_GetUserInventory.Unbind();
 

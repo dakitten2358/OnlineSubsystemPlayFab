@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSessionPlayFab.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemPlayFab.h"
 #include "OnlineSubsystemUtils.h"
@@ -27,12 +27,12 @@ FString FOnlineAsyncTaskPingServer::ToString() const
 	return FString::Printf(TEXT("FOnlineAsyncTaskPingServer bWasSuccessful: %d"), bWasSuccessful);
 }
 
-bool FOnlineAsyncTaskPingServer::IsDone()
+bool FOnlineAsyncTaskPingServer::IsDone() const
 {
 	return bIsComplete;
 }
 
-bool FOnlineAsyncTaskPingServer::WasSuccessful()
+bool FOnlineAsyncTaskPingServer::WasSuccessful() const
 {
 	return bWasSuccessful;
 }
@@ -56,16 +56,16 @@ void FOnlineAsyncTaskPingServer::ServerPingResult(FIcmpEchoResult Result, FStrin
 }
 
 FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType)
-	: HostAddr(NULL)
+	: SessionType(InSessionType)
+	, HostAddr(NULL)
 	, SessionId(TEXT("INVALID"))
-	, SessionType(InSessionType)
 {
 }
 
 FOnlineSessionInfoPlayFab::FOnlineSessionInfoPlayFab(EPlayFabSession::Type InSessionType, const FUniqueNetIdLobbyId& InSessionId, FString InMatchmakeTicket /* = "" */)
-	: HostAddr(NULL)
+	: SessionType(InSessionType)
+	, HostAddr(NULL)
 	, SessionId(InSessionId)
-	, SessionType(InSessionType)
 	, MatchmakeTicket(InMatchmakeTicket)
 {
 
@@ -148,7 +148,7 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_GetCurrentGames(const PlayF
 			FOnlineSessionInfoPlayFab* PlayFabSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionClient, FUniqueNetIdLobbyId(GameInfo.LobbyID));
 			PlayFabSessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 			bool bIsValid;
-			PlayFabSessionInfo->HostAddr->SetIp(*GameInfo.ServerHostname, bIsValid);
+			PlayFabSessionInfo->HostAddr->SetIp(*GameInfo.ServerPublicDNSName, bIsValid);
 			PlayFabSessionInfo->HostAddr->SetPort((!GameInfo.ServerPort.isNull() && GameInfo.ServerPort.mValue !=0) ? GameInfo.ServerPort.mValue : 7777);
 			NewSession->SessionInfo = MakeShareable(PlayFabSessionInfo);
 
@@ -230,7 +230,7 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake(const PlayFab::Cl
 	FOnlineSessionInfoPlayFab* PlayFabSessionInfo = new FOnlineSessionInfoPlayFab(EPlayFabSession::AdvertisedSessionClient, FUniqueNetIdLobbyId(Result.LobbyID), Result.Ticket);
 	PlayFabSessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 	bool bIsValid;
-	PlayFabSessionInfo->HostAddr->SetIp(*Result.ServerHostname, bIsValid);
+	PlayFabSessionInfo->HostAddr->SetIp(*Result.ServerIPV4Address, bIsValid);
 	PlayFabSessionInfo->HostAddr->SetPort((!Result.ServerPort.isNull() && Result.ServerPort.mValue != 0) ? Result.ServerPort.mValue : 7777);
 
 	NewSession.SessionInfo = MakeShareable(PlayFabSessionInfo);
@@ -242,12 +242,12 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Client_Matchmake(const PlayFab::Cl
 	TriggerOnMatchmakingCompleteDelegates(SessionName, true);
 }
 
-void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName)
+void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName)
 {
 	OnErrorCallback_Client(ErrorResult, FunctionName, NAME_None);
 }
 
-void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName)
+void FOnlineSessionPlayFab::OnErrorCallback_Client(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName, FName SessionName)
 {
 	UE_LOG_ONLINE(Error, TEXT("PlayFabClient: Function \"%s\" error: %s"), *FunctionName.ToString(), *ErrorResult.GenerateErrorReport());
 
@@ -332,12 +332,12 @@ void FOnlineSessionPlayFab::OnSuccessCallback_Server_RedeemMatchmakerTicket(cons
 	TriggerOnAuthenticatePlayerCompleteDelegates(FUniqueNetIdPlayFabId(Result.UserInfo->PlayFabId), Result.TicketIsValid);
 }
 
-void FOnlineSessionPlayFab::OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName)
+void FOnlineSessionPlayFab::OnErrorCallback_Server(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName, FName SessionName)
 {
 	OnErrorCallback_Server(ErrorResult, FunctionName, SessionName, MakeShareable(new FUniqueNetIdPlayFabId()));
 }
 
-void FOnlineSessionPlayFab::OnErrorCallback_Server(const PlayFab::FPlayFabError& ErrorResult, FName FunctionName, FName SessionName, TSharedRef<FUniqueNetId> PlayerId)
+void FOnlineSessionPlayFab::OnErrorCallback_Server(const PlayFab::FPlayFabCppError& ErrorResult, FName FunctionName, FName SessionName, TSharedRef<FUniqueNetId> PlayerId)
 {
 	UE_LOG_ONLINE(Error, TEXT("PlayFabServer: Function \"%s\" error: %s"), *FunctionName.ToString(), *ErrorResult.ErrorMessage);
 
@@ -459,6 +459,10 @@ void FOnlineSessionPlayFab::PlayerLeft(const FUniqueNetId& PlayerId, FName Sessi
 
 bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FName SessionName, FString AuthTicket, bool bIsMatchmakeTicket)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Result = E_FAIL;
 
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -522,6 +526,10 @@ bool FOnlineSessionPlayFab::AuthenticatePlayer(const FUniqueNetId& PlayerId, FNa
 
 bool FOnlineSessionPlayFab::CreateSession(int32 HostingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Result = E_FAIL;
 
 	// Check for an existing session
@@ -601,6 +609,10 @@ bool FOnlineSessionPlayFab::CreateSession(const FUniqueNetId& HostingPlayerId, F
 
 uint32 FOnlineSessionPlayFab::CreateInternetSession(int32 HostingPlayerNum, class FNamedOnlineSession* Session)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Result = E_FAIL;
 
 	// Only allowed one published session with PlayFab
@@ -667,7 +679,7 @@ uint32 FOnlineSessionPlayFab::CreateInternetSession(int32 HostingPlayerNum, clas
 				}
 				HostAddr->SetPort(FURL::UrlConfig.DefaultPort);
 
-				Request.ServerHost = HostAddr->ToString(false);
+				Request.ServerIPV4Address = HostAddr->ToString(false);
 				int32 port = HostAddr->GetPort();
 				port = port != 0 ? port : 7777;
 				Request.ServerPort = FString::FromInt(port);
@@ -698,6 +710,10 @@ uint32 FOnlineSessionPlayFab::CreateInternetSession(int32 HostingPlayerNum, clas
 
 uint32 FOnlineSessionPlayFab::CreateLANSession(int32 HostingPlayerNum, class FNamedOnlineSession* Session)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	check(Session);
 	uint32 Result = ERROR_SUCCESS;
 
@@ -724,8 +740,20 @@ uint32 FOnlineSessionPlayFab::CreateLANSession(int32 HostingPlayerNum, class FNa
 	return Result;
 }
 
+TSharedPtr<const FUniqueNetId> FOnlineSessionPlayFab::CreateSessionIdFromString(const FString& SessionIdStr)
+{
+	ensureMsgf(false, TEXT("NYI"));
+	TSharedPtr<const FUniqueNetId> SessionId;
+	return SessionId;
+}
+
+
 bool FOnlineSessionPlayFab::StartSession(FName SessionName)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Result = E_FAIL;
 	// Grab the session information by name
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -828,6 +856,10 @@ bool FOnlineSessionPlayFab::UpdateSession(FName SessionName, FOnlineSessionSetti
 
 uint32 FOnlineSessionPlayFab::UpdateInternetSession(FNamedOnlineSession* Session)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Result = E_FAIL;
 
 	FOnlineSessionInfoPlayFab* SessionInfo = (FOnlineSessionInfoPlayFab*)(Session->SessionInfo.Get());
@@ -937,6 +969,10 @@ uint32 FOnlineSessionPlayFab::UpdateInternetSession(FNamedOnlineSession* Session
 
 bool FOnlineSessionPlayFab::EndSession(FName SessionName)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Result = E_FAIL;
 
 	// Grab the session information by name
@@ -1009,6 +1045,10 @@ bool FOnlineSessionPlayFab::EndSession(FName SessionName)
 
 bool FOnlineSessionPlayFab::DestroySession(FName SessionName, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Result = E_FAIL;
 	// Find the session in question
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -1060,6 +1100,10 @@ bool FOnlineSessionPlayFab::DestroySession(FName SessionName, const FOnDestroySe
 
 uint32 FOnlineSessionPlayFab::DestroyInternetSession(FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	Session->SessionState = EOnlineSessionState::Destroying;
 
 	if (Session->SessionInfo.IsValid())
@@ -1223,6 +1267,10 @@ bool FOnlineSessionPlayFab::CancelMatchmaking(const FUniqueNetId& SearchingPlaye
 
 bool FOnlineSessionPlayFab::FindSessions(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Return = E_FAIL;
 
 	if (CurrentMatchmakeSearch.IsValid())
@@ -1286,6 +1334,10 @@ bool FOnlineSessionPlayFab::FindSessionById(const FUniqueNetId& SearchingUserId,
 
 uint32 FOnlineSessionPlayFab::FindInternetSession(int32 SearchingPlayerNum, const TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	PlayFabClientPtr ClientAPI = PlayFabSubsystem->GetClientAPI(SearchingPlayerNum);
 	if (ClientAPI.IsValid())
 	{
@@ -1415,6 +1467,10 @@ uint32 FOnlineSessionPlayFab::FindInternetSession(int32 SearchingPlayerNum, cons
 
 uint32 FOnlineSessionPlayFab::FindLANSession()
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Return = ERROR_IO_PENDING;
 
 	if (!LANSession)
@@ -1447,6 +1503,10 @@ uint32 FOnlineSessionPlayFab::FindLANSession()
 
 bool FOnlineSessionPlayFab::CancelFindSessions()
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	uint32 Return = E_FAIL;
 	if (CurrentSessionSearch.IsValid() && CurrentSessionSearch->SearchState == EOnlineAsyncTaskState::InProgress)
 	{
@@ -1485,6 +1545,11 @@ bool FOnlineSessionPlayFab::CancelFindSessions()
 
 bool FOnlineSessionPlayFab::JoinSession(int32 PlayerNum, FName SessionName, const FOnlineSessionSearchResult& DesiredSession)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
+
 	uint32 Return = E_FAIL;
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
 	// Don't join a session if already in one or hosting one
@@ -1554,6 +1619,11 @@ bool FOnlineSessionPlayFab::JoinSession(const FUniqueNetId& PlayerId, FName Sess
 
 uint32 FOnlineSessionPlayFab::JoinInternetSession(int32 PlayerNum, FNamedOnlineSession* Session, const FOnlineSession* SearchSession)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
+
 	uint32 Result = E_FAIL;
 	Session->SessionState = EOnlineSessionState::Pending;
 
@@ -1575,6 +1645,10 @@ uint32 FOnlineSessionPlayFab::JoinInternetSession(int32 PlayerNum, FNamedOnlineS
 
 uint32 FOnlineSessionPlayFab::JoinLANSession(int32 PlayerNum, FNamedOnlineSession* Session, const FOnlineSession* SearchSession)
 {
+	constexpr uint32 E_FAIL = 0x80004005;
+	constexpr uint32 ERROR_SUCCESS = 0;
+	constexpr uint32 ERROR_IO_PENDING = 0x3E5;
+
 	check(Session != nullptr);
 
 	uint32 Result = E_FAIL;
@@ -1589,7 +1663,9 @@ uint32 FOnlineSessionPlayFab::JoinLANSession(int32 PlayerNum, FNamedOnlineSessio
 
 		uint32 IpAddr;
 		SearchSessionInfo->HostAddr->GetIp(IpAddr);
-		SessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr(IpAddr, SearchSessionInfo->HostAddr->GetPort());
+		SessionInfo->HostAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+		SessionInfo->HostAddr->SetIp(IpAddr);
+		SessionInfo->HostAddr->SetPort(SearchSessionInfo->HostAddr->GetPort());
 		Result = ERROR_SUCCESS;
 	}
 

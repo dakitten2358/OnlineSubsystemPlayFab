@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlineUserInterface.h"
+#include "Interfaces/OnlineUserInterface.h"
 #include "OnlineSubsystemPlayFabTypes.h"
 #include "OnlineSubsystemPlayFabPackage.h"
 #include "Core/PlayFabClientAPI.h"
@@ -92,10 +92,10 @@ private:
 	PlayFab::UPlayFabClientAPI::FGetAccountInfoDelegate SuccessDelegate_Client_GetAccountInfo;
 	void OnSuccessCallback_Client_GetAccountInfo(const PlayFab::ClientModels::FGetAccountInfoResult& Result, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds);
 	void OnSuccessCallback_Server_GetAccountInfo(const PlayFab::ServerModels::FGetUserAccountInfoResult& Result, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds);
-	void OnErrorCallback_GetAccountInfo(const PlayFab::FPlayFabError& ErrorResult, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds);
+	void OnErrorCallback_GetAccountInfo(const PlayFab::FPlayFabCppError& ErrorResult, int32 LocalUserNum, const TArray<TSharedRef<const FUniqueNetId>>* UserIds);
 
 	void OnSuccessCallback_Client_Query_GetAccountInfo(const PlayFab::ClientModels::FGetAccountInfoResult& Result, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate);
-	void OnErrorCallback_Query_GetAccountInfo(const PlayFab::FPlayFabError& ErrorResult, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate);
+	void OnErrorCallback_Query_GetAccountInfo(const PlayFab::FPlayFabCppError& ErrorResult, TSharedRef<const FUniqueNetId> UserId, const FString DisplayNameOrEmail, const FOnQueryUserMappingComplete Delegate);
 };
 
 typedef TSharedPtr<FOnlineUserPlayFab, ESPMode::ThreadSafe> FOnlineUserPlayFabPtr;

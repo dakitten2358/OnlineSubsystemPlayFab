@@ -44,7 +44,7 @@ IOnlineAchievementsPtr FOnlineSubsystemPlayFab::GetAchievementsInterface() const
 
 IOnlineChatPtr FOnlineSubsystemPlayFab::GetChatInterface() const
 {
-	return ChatInterface;
+	return nullptr;
 }
 
 IOnlineEntitlementsPtr FOnlineSubsystemPlayFab::GetEntitlementsInterface() const
@@ -157,6 +157,11 @@ IOnlineVoicePtr FOnlineSubsystemPlayFab::GetVoiceInterface() const
 	return nullptr;
 }
 
+IOnlineTournamentPtr FOnlineSubsystemPlayFab::GetTournamentInterface() const
+{
+	return nullptr;
+}
+
 // ==========================
 // ===== End Interfaces =====
 // ==========================
@@ -263,7 +268,7 @@ FOnAuthenticatePlayerComplete FOnlineSubsystemPlayFab::GetAuthenticatePlayerDele
 */
 bool FOnlineSubsystemPlayFab::Init()
 {
-	UE_LOG_ONLINE(VeryVerbose, TEXT("PlayFab Subsystem Initializing"));
+	UE_LOG_ONLINE(Warning, TEXT("PlayFab Subsystem Initializing"));
 
 	// Create the online async task thread
 	OnlineAsyncTaskThreadRunnable = new FOnlineAsyncTaskManagerPlayFab(this);
@@ -274,7 +279,7 @@ bool FOnlineSubsystemPlayFab::Init()
 
 	// Create the interfaces
 	AchievementsInterface = MakeShareable(new FOnlineAchievementsPlayFab(this));
-	ChatInterface = MakeShareable(new FOnlineChatPlayFab(this));
+	//ChatInterface = MakeShareable(new FOnlineChatPlayFab(this));
 	EntitlementsInterface = MakeShareable(new FOnlineEntitlementsPlayFab(this));
 	EventsInterface = MakeShareable(new FOnlineEventsPlayFab(this));
 	ExternalUIInterface = MakeShareable(new FOnlineExternalUIPlayFab(this));
@@ -323,7 +328,7 @@ bool FOnlineSubsystemPlayFab::Shutdown()
 	}
 
 	AchievementsInterface = nullptr;
-	ChatInterface = nullptr;
+	//ChatInterface = nullptr;
 	EntitlementsInterface = nullptr;
 	EventsInterface = nullptr;
 	ExternalUIInterface = nullptr;
@@ -374,7 +379,7 @@ FString FOnlineSubsystemPlayFab::GetBuildVersion() const
 	return ProjectVersion;
 }
 
-bool FOnlineSubsystemPlayFab::IsEnabled()
+bool FOnlineSubsystemPlayFab::IsEnabled() const
 {
 	// Check the ini for disabling PlayFab
 	bool bEnablePlayFab = false;
@@ -400,6 +405,12 @@ bool FOnlineSubsystemPlayFab::IsXmppEnabled()
 #endif
 
 	return bEnableXmpp;
+}
+
+TSharedPtr<FUniqueNetId> FOnlineSubsystemPlayFab::CreateUniqueNetIdFromPlayFabID(const FString& PlayFabId)
+{
+	FUniqueNetIdPlayFabId* uniqueId = new FUniqueNetIdPlayFabId(PlayFabId);
+	return MakeShareable(uniqueId);
 }
 
 #undef LOCTEXT_NAMESPACE

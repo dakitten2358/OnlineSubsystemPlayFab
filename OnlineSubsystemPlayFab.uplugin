@@ -3,7 +3,7 @@
   "FriendlyName": "OnlineSubsystemPlayFab",
   "Version": 1.0,
   "VersionName": "1.0",
-  "EngineVersion" : "4.18",
+  "EngineVersion" : "4.26",
   "CreatedBy": "Montana Tuska",
   "CreatedByURL": "https://gitlab.com/mtuska",
   "DocsURL": "https://gitlab.com/mtuska/OnlineSubsystemPlayFab",
